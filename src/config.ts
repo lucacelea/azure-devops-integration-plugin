@@ -47,6 +47,31 @@ function parseRemoteUrl(url: string): ParsedRemote {
     return {};
 }
 
+export async function getOrganization(): Promise<string> {
+    const settings = vscode.workspace.getConfiguration('azureDevops');
+    let organization = settings.get<string>('organization') || '';
+
+    if (!organization) {
+        const remoteUrl = await getRemoteUrl();
+        if (remoteUrl) {
+            const parsed = parseRemoteUrl(remoteUrl);
+            if (parsed.organization) {
+                organization = parsed.organization;
+            }
+        }
+    }
+
+    if (!organization) {
+        throw new Error(
+            'Azure DevOps organization not configured. ' +
+            'Please set azureDevops.organization in Settings ' +
+            'or ensure your git remote "origin" points to an Azure DevOps repository.'
+        );
+    }
+
+    return organization;
+}
+
 export async function getDevOpsConfig(): Promise<DevOpsConfig> {
     const settings = vscode.workspace.getConfiguration('azureDevops');
     let organization = settings.get<string>('organization') || '';

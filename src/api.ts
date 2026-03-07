@@ -33,11 +33,10 @@ function httpsGet(url: string, headers: Record<string, string>): Promise<string>
 
 export async function getAssignedPullRequests(
     org: string,
-    project: string,
     token: string
 ): Promise<PullRequest[]> {
     const url =
-        `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}` +
+        `https://dev.azure.com/${encodeURIComponent(org)}` +
         `/_apis/git/pullrequests?searchCriteria.reviewerId=me&searchCriteria.status=active&api-version=7.1`;
 
     const auth = Buffer.from(':' + token).toString('base64');

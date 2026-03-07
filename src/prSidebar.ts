@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getDevOpsConfig } from './config';
+import { getOrganization } from './config';
 import { getToken } from './auth';
 import { getAssignedPullRequests, PullRequest } from './api';
 
@@ -26,12 +26,11 @@ export class PullRequestItem extends vscode.TreeItem {
 
     static fromPullRequest(
         pr: PullRequest,
-        org: string,
-        project: string
+        org: string
     ): PullRequestItem {
-        const branch = pr.sourceBranch.replace(/^refs\/heads\//, '');
-        const repoName = pr.repository.name;
-        const prProject = pr.repository.project.name;
+        const branch = pr.sourceBranch?.replace(/^refs\/heads\//, '') ?? '';
+        const repoName = pr.repository?.name ?? '';
+        const prProject = pr.repository?.project?.name ?? '';
         const prUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(prProject)}/_git/${encodeURIComponent(repoName)}/pullrequest/${pr.pullRequestId}`;
 
         const voteDescriptions = pr.reviewers.map((r) => {
@@ -116,16 +115,16 @@ export class PullRequestTreeProvider implements vscode.TreeDataProvider<PullRequ
             ];
         }
 
-        let config;
+        let org: string;
         try {
-            config = await getDevOpsConfig();
+            org = await getOrganization();
         } catch (e: any) {
-            return [PullRequestItem.message(e.message || 'Failed to get Azure DevOps configuration')];
+            return [PullRequestItem.message(e.message || 'Failed to get Azure DevOps organization')];
         }
 
         let pullRequests: PullRequest[];
         try {
-            pullRequests = await getAssignedPullRequests(config.organization, config.project, token);
+            pullRequests = await getAssignedPullRequests(org, token);
         } catch (e: any) {
             return [PullRequestItem.message(`Error fetching PRs: ${e.message}`)];
         }
@@ -141,14 +140,14 @@ export class PullRequestTreeProvider implements vscode.TreeDataProvider<PullRequ
 
         if (active.length > 0) {
             const items = active.map((pr) =>
-                PullRequestItem.fromPullRequest(pr, config.organization, config.project)
+                PullRequestItem.fromPullRequest(pr, org)
             );
             categories.push(PullRequestItem.fromCategory('Active', items));
         }
 
         if (drafts.length > 0) {
             const items = drafts.map((pr) =>
-                PullRequestItem.fromPullRequest(pr, config.organization, config.project)
+                PullRequestItem.fromPullRequest(pr, org)
             );
             categories.push(PullRequestItem.fromCategory('Drafts', items));
         }
