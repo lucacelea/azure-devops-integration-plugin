@@ -1,0 +1,120 @@
+{
+  "name": "azure-devops-integration",
+  "displayName": "Azure DevOps Integration",
+  "description": "Streamline your Azure DevOps workflow directly from VS Code",
+  "version": "0.1.0",
+  "publisher": "lucac",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "SCM Providers",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "azureDevops.createPullRequest",
+        "title": "Azure DevOps: Create Pull Request"
+      },
+      {
+        "command": "azureDevops.openRepository",
+        "title": "Azure DevOps: Open Repository"
+      },
+      {
+        "command": "azureDevops.openWorkItem",
+        "title": "Azure DevOps: Open Work Item"
+      },
+      {
+        "command": "azureDevops.setToken",
+        "title": "Azure DevOps: Set Personal Access Token"
+      },
+      {
+        "command": "azureDevops.removeToken",
+        "title": "Azure DevOps: Remove Personal Access Token"
+      },
+      {
+        "command": "azureDevops.refreshPullRequests",
+        "title": "Azure DevOps: Refresh Pull Requests",
+        "icon": "$(refresh)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "azureDevops",
+          "title": "Azure DevOps",
+          "icon": "$(git-pull-request)"
+        }
+      ]
+    },
+    "views": {
+      "azureDevops": [
+        {
+          "id": "azureDevops.pullRequests",
+          "name": "Pull Requests"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "azureDevops.refreshPullRequests",
+          "when": "view == azureDevops.pullRequests",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Azure DevOps",
+      "properties": {
+        "azureDevops.organization": {
+          "type": "string",
+          "default": "",
+          "description": "Azure DevOps organization name. Auto-detected from git remote if not set."
+        },
+        "azureDevops.project": {
+          "type": "string",
+          "default": "",
+          "description": "Azure DevOps project name. Auto-detected from git remote if not set."
+        },
+        "azureDevops.repository": {
+          "type": "string",
+          "default": "",
+          "description": "Azure DevOps repository name. Auto-detected from git remote if not set."
+        },
+        "azureDevops.branchPrefix": {
+          "type": "string",
+          "default": "",
+          "description": "Personal branch prefix to strip when parsing branch names (e.g., 'lucac/')."
+        },
+        "azureDevops.workItemPattern": {
+          "type": "string",
+          "default": "",
+          "description": "Custom regex pattern to extract work item ID from branch name. Must contain a capture group for the ID. Leave empty to use default patterns."
+        },
+        "azureDevops.pullRequestRefreshInterval": {
+          "type": "number",
+          "default": 300,
+          "minimum": 30,
+          "description": "Interval in seconds to auto-refresh the pull request list (minimum 30)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.3"
+  }
+}
