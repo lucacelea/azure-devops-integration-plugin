@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { getOrganization } from './config';
 import { getToken } from './auth';
-import { getAssignedPullRequests, PullRequest } from './api';
+import { getMyPullRequests, EnrichedPullRequest } from './api';
 
 export class PullRequestItem extends vscode.TreeItem {
     public children?: PullRequestItem[];
@@ -25,7 +25,7 @@ export class PullRequestItem extends vscode.TreeItem {
     }
 
     static fromPullRequest(
-        pr: PullRequest,
+        pr: EnrichedPullRequest,
         org: string
     ): PullRequestItem {
         const branch = pr.sourceBranch?.replace(/^refs\/heads\//, '') ?? '';
@@ -45,20 +45,50 @@ export class PullRequestItem extends vscode.TreeItem {
             return `${r.displayName}: ${voteLabel}`;
         });
 
+        // Build description with branch, checks, and comments
+        const checksIcon =
+            pr.checksStatus === 'passed' ? '$(pass-filled)' :
+            pr.checksStatus === 'failed' ? '$(error)' :
+            pr.checksStatus === 'running' ? '$(loading~spin)' : '';
+        const commentsIcon = pr.unresolvedCommentCount > 0
+            ? `$(comment-discussion) ${pr.unresolvedCommentCount}`
+            : '';
+        const statusParts = [branch, checksIcon, commentsIcon].filter(Boolean);
+
         const item = new PullRequestItem(
             pr.title,
             vscode.TreeItemCollapsibleState.None
         );
-        item.description = branch;
+        item.description = statusParts.join('  ');
+
+        // Build rich tooltip
+        const checksLabel =
+            pr.checksStatus === 'passed' ? 'Checks: **passed** $(pass-filled)' :
+            pr.checksStatus === 'failed' ? 'Checks: **failed** $(error)' :
+            pr.checksStatus === 'running' ? 'Checks: **running** $(loading~spin)' :
+            'Checks: none';
+        const commentsLabel = pr.unresolvedCommentCount > 0
+            ? `Unresolved comments: **${pr.unresolvedCommentCount}**`
+            : 'No unresolved comments';
+
         item.tooltip = new vscode.MarkdownString(
             `**${pr.title}**\n\n` +
             `Author: ${pr.createdBy.displayName}\n\n` +
             `Branch: \`${branch}\`\n\n` +
+            `${checksLabel}\n\n` +
+            `${commentsLabel}\n\n` +
             (voteDescriptions.length > 0
                 ? `Reviewers:\n${voteDescriptions.map((v) => `- ${v}`).join('\n')}`
                 : 'No reviewers')
         );
-        item.iconPath = new vscode.ThemeIcon('git-pull-request');
+        item.tooltip.supportThemeIcons = true;
+
+        // Icon reflects checks status
+        const iconId =
+            pr.checksStatus === 'failed' ? 'git-pull-request-closed' :
+            pr.checksStatus === 'passed' ? 'git-pull-request-go-to-changes' :
+            'git-pull-request';
+        item.iconPath = new vscode.ThemeIcon(iconId);
         item.contextValue = 'pullRequest';
         item.command = {
             command: 'vscode.open',
@@ -122,34 +152,40 @@ export class PullRequestTreeProvider implements vscode.TreeDataProvider<PullRequ
             return [PullRequestItem.message(e.message || 'Failed to get Azure DevOps organization')];
         }
 
-        let pullRequests: PullRequest[];
+        let result;
         try {
-            pullRequests = await getAssignedPullRequests(org, token);
+            result = await getMyPullRequests(org, token);
         } catch (e: any) {
             return [PullRequestItem.message(`Error fetching PRs: ${e.message}`)];
         }
 
-        if (pullRequests.length === 0) {
-            return [PullRequestItem.message('No pull requests assigned to you')];
-        }
+        const { createdByMe, assignedToMe, assignedToMyTeams } = result;
 
-        const active = pullRequests.filter((pr) => !pr.isDraft);
-        const drafts = pullRequests.filter((pr) => pr.isDraft);
+        if (createdByMe.length === 0 && assignedToMe.length === 0 && assignedToMyTeams.length === 0) {
+            return [PullRequestItem.message('No pull requests')];
+        }
 
         const categories: PullRequestItem[] = [];
 
-        if (active.length > 0) {
-            const items = active.map((pr) =>
+        if (createdByMe.length > 0) {
+            const items = createdByMe.map((pr) =>
                 PullRequestItem.fromPullRequest(pr, org)
             );
-            categories.push(PullRequestItem.fromCategory('Active', items));
+            categories.push(PullRequestItem.fromCategory('Created by me', items));
         }
 
-        if (drafts.length > 0) {
-            const items = drafts.map((pr) =>
+        if (assignedToMe.length > 0) {
+            const items = assignedToMe.map((pr) =>
                 PullRequestItem.fromPullRequest(pr, org)
             );
-            categories.push(PullRequestItem.fromCategory('Drafts', items));
+            categories.push(PullRequestItem.fromCategory('Assigned to me', items));
+        }
+
+        if (assignedToMyTeams.length > 0) {
+            const items = assignedToMyTeams.map((pr) =>
+                PullRequestItem.fromPullRequest(pr, org)
+            );
+            categories.push(PullRequestItem.fromCategory('Assigned to my teams', items));
         }
 
         return categories;
