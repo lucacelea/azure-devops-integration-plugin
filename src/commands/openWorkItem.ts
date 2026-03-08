@@ -1,16 +1,13 @@
 import * as vscode from 'vscode';
-import { getDevOpsConfig, getProjectUrl } from '../config';
+import { getOrganization, getWorkItemProject } from '../config';
 import { getWorkItemId } from '../workItem';
 
 export async function openWorkItem(): Promise<void> {
     try {
-        let config;
-        try {
-            config = await getDevOpsConfig();
-        } catch (error) {
-            vscode.window.showErrorMessage(`Failed to get Azure DevOps configuration: ${error instanceof Error ? error.message : error}`);
-            return;
-        }
+        const [org, project] = await Promise.all([
+            getOrganization(),
+            getWorkItemProject(),
+        ]);
 
         const defaultId = await getWorkItemId();
 
@@ -24,9 +21,9 @@ export async function openWorkItem(): Promise<void> {
             return;
         }
 
-        const url = `${getProjectUrl(config)}/_workitems/edit/${id}`;
+        const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_workitems/edit/${id}`;
         await vscode.env.openExternal(vscode.Uri.parse(url));
     } catch (error) {
-        vscode.window.showErrorMessage(`Failed to open work item: ${error instanceof Error ? error.message : error}`);
+        vscode.window.showErrorMessage(`${error instanceof Error ? error.message : error}`);
     }
 }

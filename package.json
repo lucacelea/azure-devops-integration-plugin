@@ -87,6 +87,11 @@
           "default": "",
           "description": "Azure DevOps repository name. Auto-detected from git remote if not set."
         },
+        "azureDevops.workItemProject": {
+          "type": "string",
+          "default": "",
+          "description": "Azure DevOps project for work items, if different from the repository's project. Falls back to azureDevops.project or the git remote's project."
+        },
         "azureDevops.branchPrefix": {
           "type": "string",
           "default": "",

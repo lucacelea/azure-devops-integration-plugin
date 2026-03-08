@@ -15,7 +15,8 @@ interface ParsedRemote {
 
 function parseRemoteUrl(url: string): ParsedRemote {
     // HTTPS: https://dev.azure.com/{org}/{project}/_git/{repo}
-    const httpsMatch = url.match(/https?:\/\/dev\.azure\.com\/([^/]+)\/([^/]+)\/_git\/([^/\s]+)/);
+    // Also handles: https://{user}@dev.azure.com/{org}/{project}/_git/{repo}
+    const httpsMatch = url.match(/https?:\/\/(?:[^@]+@)?dev\.azure\.com\/([^/]+)\/([^/]+)\/_git\/([^/\s]+)/);
     if (httpsMatch) {
         return {
             organization: httpsMatch[1],
@@ -110,10 +111,34 @@ export async function getDevOpsConfig(): Promise<DevOpsConfig> {
     return { organization, project, repository };
 }
 
+export async function getWorkItemProject(): Promise<string> {
+    const settings = vscode.workspace.getConfiguration('azureDevops');
+    const workItemProject = settings.get<string>('workItemProject') || '';
+    if (workItemProject) {
+        return workItemProject;
+    }
+
+    // Fall back to the repo's project from settings or remote
+    const project = settings.get<string>('project') || '';
+    if (project) {
+        return project;
+    }
+
+    const remoteUrl = await getRemoteUrl();
+    if (remoteUrl) {
+        const parsed = parseRemoteUrl(remoteUrl);
+        if (parsed.project) {
+            return parsed.project;
+        }
+    }
+
+    throw new Error(
+        'Azure DevOps project not configured for work items. ' +
+        'Please set azureDevops.workItemProject in Settings.'
+    );
+}
+
 export function getBaseUrl(config: DevOpsConfig): string {
     return `https://dev.azure.com/${encodeURIComponent(config.organization)}/${encodeURIComponent(config.project)}/_git/${encodeURIComponent(config.repository)}`;
 }
 
-export function getProjectUrl(config: DevOpsConfig): string {
-    return `https://dev.azure.com/${encodeURIComponent(config.organization)}/${encodeURIComponent(config.project)}`;
-}
