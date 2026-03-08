@@ -33,62 +33,84 @@ export class PullRequestItem extends vscode.TreeItem {
         const prProject = pr.repository?.project?.name ?? '';
         const prUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(prProject)}/_git/${encodeURIComponent(repoName)}/pullrequest/${pr.pullRequestId}`;
 
-        const voteDescriptions = pr.reviewers.map((r) => {
-            let voteLabel: string;
-            switch (r.vote) {
-                case 10: voteLabel = 'approved'; break;
-                case 5: voteLabel = 'approved with suggestions'; break;
-                case -5: voteLabel = 'waiting for author'; break;
-                case -10: voteLabel = 'rejected'; break;
-                default: voteLabel = 'no vote'; break;
-            }
-            return `${r.displayName}: ${voteLabel}`;
+        const reviewers = pr.reviewers ?? [];
+        const hasRejection = reviewers.some((r) => r.vote === -10);
+        const allApproved = reviewers.length > 0 && reviewers.every((r) => r.vote >= 5);
+
+        // --- Icon: primary status signal (worst-case priority) ---
+        let iconId: string;
+        let iconColor: vscode.ThemeColor | undefined;
+        if (pr.isDraft) {
+            iconId = 'git-pull-request-draft';
+        } else if (pr.checksStatus === 'failed') {
+            iconId = 'error';
+            iconColor = new vscode.ThemeColor('errorForeground');
+        } else if (hasRejection) {
+            iconId = 'git-pull-request-closed';
+            iconColor = new vscode.ThemeColor('errorForeground');
+        } else if (pr.checksStatus === 'running') {
+            iconId = 'git-pull-request';
+            iconColor = new vscode.ThemeColor('warningForeground');
+        } else if (allApproved) {
+            iconId = 'git-pull-request-go-to-changes';
+            iconColor = new vscode.ThemeColor('testing.iconPassed');
+        } else {
+            iconId = 'git-pull-request';
+        }
+
+        // --- Label ---
+        const label = pr.isDraft ? `[Draft] ${pr.title}` : pr.title;
+
+        // --- Description: just the branch name ---
+        const description = branch;
+
+        // --- Tooltip: plain markdown (no codicons — they don't render reliably in tree tooltips) ---
+        const checksText =
+            pr.checksStatus === 'passed'  ? '\u2714 Checks: **passed**' :
+            pr.checksStatus === 'failed'  ? '\u2718 Checks: **failed**' :
+            pr.checksStatus === 'running' ? '\u25CB Checks: **running**' :
+            '\u2014 Checks: none';
+
+        const commentsText = pr.unresolvedCommentCount > 0
+            ? `\u25A0 Unresolved comments: **${pr.unresolvedCommentCount}**`
+            : '\u2714 No unresolved comments';
+
+        const reviewerLines = reviewers.map((r) => {
+            const symbol =
+                r.vote >= 5    ? '\u2714' :
+                r.vote === -5  ? '\u25CB' :
+                r.vote === -10 ? '\u2718' :
+                '\u2013';
+            const rLabel =
+                r.vote === 10  ? 'approved' :
+                r.vote === 5   ? 'approved with suggestions' :
+                r.vote === -5  ? 'waiting for author' :
+                r.vote === -10 ? 'rejected' :
+                'no vote';
+            return `- ${symbol} ${r.displayName} \u2014 ${rLabel}`;
         });
 
-        // Build description with branch, checks, and comments
-        const checksIcon =
-            pr.checksStatus === 'passed' ? '$(pass-filled)' :
-            pr.checksStatus === 'failed' ? '$(error)' :
-            pr.checksStatus === 'running' ? '$(loading~spin)' : '';
-        const commentsIcon = pr.unresolvedCommentCount > 0
-            ? `$(comment-discussion) ${pr.unresolvedCommentCount}`
-            : '';
-        const statusParts = [branch, checksIcon, commentsIcon].filter(Boolean);
+        const draftLine = pr.isDraft ? '**Draft**\n\n' : '';
 
-        const item = new PullRequestItem(
-            pr.title,
-            vscode.TreeItemCollapsibleState.None
+        const tooltip = new vscode.MarkdownString(
+            `**${pr.title}** #${pr.pullRequestId}\n\n` +
+            draftLine +
+            `Author: ${pr.createdBy.displayName}  \n` +
+            `Branch: ${branch}\n\n` +
+            `---\n\n` +
+            `${checksText}  \n` +
+            `${commentsText}\n\n` +
+            `---\n\n` +
+            (reviewerLines.length > 0
+                ? `**Reviewers:**\n\n${reviewerLines.join('\n')}`
+                : 'No reviewers assigned')
         );
-        item.description = statusParts.join('  ');
 
-        // Build rich tooltip
-        const checksLabel =
-            pr.checksStatus === 'passed' ? 'Checks: **passed** $(pass-filled)' :
-            pr.checksStatus === 'failed' ? 'Checks: **failed** $(error)' :
-            pr.checksStatus === 'running' ? 'Checks: **running** $(loading~spin)' :
-            'Checks: none';
-        const commentsLabel = pr.unresolvedCommentCount > 0
-            ? `Unresolved comments: **${pr.unresolvedCommentCount}**`
-            : 'No unresolved comments';
-
-        item.tooltip = new vscode.MarkdownString(
-            `**${pr.title}**\n\n` +
-            `Author: ${pr.createdBy.displayName}\n\n` +
-            `Branch: \`${branch}\`\n\n` +
-            `${checksLabel}\n\n` +
-            `${commentsLabel}\n\n` +
-            (voteDescriptions.length > 0
-                ? `Reviewers:\n${voteDescriptions.map((v) => `- ${v}`).join('\n')}`
-                : 'No reviewers')
-        );
-        item.tooltip.supportThemeIcons = true;
-
-        // Icon reflects checks status
-        const iconId =
-            pr.checksStatus === 'failed' ? 'git-pull-request-closed' :
-            pr.checksStatus === 'passed' ? 'git-pull-request-go-to-changes' :
-            'git-pull-request';
-        item.iconPath = new vscode.ThemeIcon(iconId);
+        // --- Assemble item ---
+        const item = new PullRequestItem(label, vscode.TreeItemCollapsibleState.None);
+        item.description = description;
+        item.tooltip = tooltip;
+        item.iconPath = new vscode.ThemeIcon(iconId, iconColor);
         item.contextValue = 'pullRequest';
         item.command = {
             command: 'vscode.open',

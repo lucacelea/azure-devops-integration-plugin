@@ -98,12 +98,15 @@ async function getUnresolvedCommentCount(
         const data = JSON.parse(body);
         const threads = data.value as Array<{
             status: string;
-            comments: Array<{ commentType: string }>;
+            isDeleted: boolean;
+            comments: Array<{ commentType: string; isDeleted: boolean }>;
         }>;
         return threads.filter(
             (t) =>
                 t.status === 'active' &&
-                t.comments?.[0]?.commentType !== 'system'
+                !t.isDeleted &&
+                t.comments?.[0]?.commentType !== 'system' &&
+                !t.comments?.every((c) => c.isDeleted)
         ).length;
     } catch {
         return 0;
