@@ -57,6 +57,80 @@
         "command": "azureDevops.refreshPullRequests",
         "title": "Azure DevOps: Refresh Pull Requests",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "azureDevops.approvePr",
+        "title": "Approve",
+        "icon": "$(check)"
+      },
+      {
+        "command": "azureDevops.approveWithSuggestionsPr",
+        "title": "Approve with Suggestions",
+        "icon": "$(check)"
+      },
+      {
+        "command": "azureDevops.waitForAuthorPr",
+        "title": "Wait for Author",
+        "icon": "$(watch)"
+      },
+      {
+        "command": "azureDevops.rejectPr",
+        "title": "Reject",
+        "icon": "$(close)"
+      },
+      {
+        "command": "azureDevops.resetVotePr",
+        "title": "Reset Vote",
+        "icon": "$(circle-slash)"
+      },
+      {
+        "command": "azureDevops.completePr",
+        "title": "Complete Pull Request",
+        "icon": "$(merge)"
+      },
+      {
+        "command": "azureDevops.abandonPr",
+        "title": "Abandon Pull Request",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "azureDevops.addCommentPr",
+        "title": "Add Comment",
+        "icon": "$(comment)"
+      },
+      {
+        "command": "azureDevops.checkoutPrBranch",
+        "title": "Checkout Branch",
+        "icon": "$(source-control)"
+      },
+      {
+        "command": "azureDevops.openPrInBrowser",
+        "title": "Open in Browser",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "azureDevops.reviewPrChanges",
+        "title": "Review Changes",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "azureDevops.clearPrChanges",
+        "title": "Clear PR Changes",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "azureDevops.openPrFileDiff",
+        "title": "Open Diff"
+      },
+      {
+        "command": "azureDevops.filterPullRequests",
+        "title": "Azure DevOps: Filter Pull Requests",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "azureDevops.sortPullRequests",
+        "title": "Azure DevOps: Sort Pull Requests",
+        "icon": "$(arrow-swap)"
       }
     ],
     "viewsContainers": {
@@ -73,6 +147,11 @@
         {
           "id": "azureDevops.pullRequests",
           "name": "Pull Requests"
+        },
+        {
+          "id": "azureDevops.prChanges",
+          "name": "PR Changes",
+          "visibility": "collapsed"
         }
       ]
     },
@@ -82,6 +161,78 @@
           "command": "azureDevops.refreshPullRequests",
           "when": "view == azureDevops.pullRequests",
           "group": "navigation"
+        },
+        {
+          "command": "azureDevops.filterPullRequests",
+          "when": "view == azureDevops.pullRequests",
+          "group": "navigation"
+        },
+        {
+          "command": "azureDevops.sortPullRequests",
+          "when": "view == azureDevops.pullRequests",
+          "group": "navigation"
+        },
+        {
+          "command": "azureDevops.clearPrChanges",
+          "when": "view == azureDevops.prChanges",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "azureDevops.reviewPrChanges",
+          "when": "viewItem == pullRequest",
+          "group": "0_review@1"
+        },
+        {
+          "command": "azureDevops.approvePr",
+          "when": "viewItem == pullRequest",
+          "group": "1_vote@1"
+        },
+        {
+          "command": "azureDevops.approveWithSuggestionsPr",
+          "when": "viewItem == pullRequest",
+          "group": "1_vote@2"
+        },
+        {
+          "command": "azureDevops.waitForAuthorPr",
+          "when": "viewItem == pullRequest",
+          "group": "1_vote@3"
+        },
+        {
+          "command": "azureDevops.rejectPr",
+          "when": "viewItem == pullRequest",
+          "group": "1_vote@4"
+        },
+        {
+          "command": "azureDevops.resetVotePr",
+          "when": "viewItem == pullRequest",
+          "group": "1_vote@5"
+        },
+        {
+          "command": "azureDevops.completePr",
+          "when": "viewItem == pullRequest",
+          "group": "2_actions@1"
+        },
+        {
+          "command": "azureDevops.abandonPr",
+          "when": "viewItem == pullRequest",
+          "group": "2_actions@2"
+        },
+        {
+          "command": "azureDevops.addCommentPr",
+          "when": "viewItem == pullRequest",
+          "group": "2_actions@3"
+        },
+        {
+          "command": "azureDevops.checkoutPrBranch",
+          "when": "viewItem == pullRequest",
+          "group": "3_branch@1"
+        },
+        {
+          "command": "azureDevops.openPrInBrowser",
+          "when": "viewItem == pullRequest",
+          "group": "4_open@1"
         }
       ]
     },

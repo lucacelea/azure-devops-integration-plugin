@@ -1,10 +1,12 @@
 import * as vscode from 'vscode';
 import { getOrganization } from './config';
 import { getToken } from './auth';
-import { getMyPullRequests, EnrichedPullRequest } from './api';
+import { getMyPullRequests, getUserId, EnrichedPullRequest } from './api';
 
 export class PullRequestItem extends vscode.TreeItem {
     public children?: PullRequestItem[];
+    public pr?: EnrichedPullRequest;
+    public org?: string;
 
     constructor(
         label: string,
@@ -118,6 +120,9 @@ export class PullRequestItem extends vscode.TreeItem {
             arguments: [vscode.Uri.parse(prUrl)],
         };
 
+        item.pr = pr;
+        item.org = org;
+
         return item;
     }
 
@@ -133,11 +138,18 @@ export class PullRequestItem extends vscode.TreeItem {
     }
 }
 
+export type PrFilter = 'all' | 'draft' | 'needsMyVote' | 'hasComments' | 'checksFailing';
+export type PrSort = 'default' | 'title' | 'commentCount';
+
 export class PullRequestTreeProvider implements vscode.TreeDataProvider<PullRequestItem> {
     private _onDidChangeTreeData = new vscode.EventEmitter<PullRequestItem | undefined | void>();
     readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-    private secretStorage: vscode.SecretStorage;
+    public secretStorage: vscode.SecretStorage;
+    public cachedUserId?: string;
+    public cachedOrg?: string;
+    private currentFilter: PrFilter = 'all';
+    private currentSort: PrSort = 'default';
 
     constructor(secretStorage: vscode.SecretStorage) {
         this.secretStorage = secretStorage;
@@ -145,6 +157,56 @@ export class PullRequestTreeProvider implements vscode.TreeDataProvider<PullRequ
 
     refresh(): void {
         this._onDidChangeTreeData.fire();
+    }
+
+    setFilter(filter: PrFilter): void {
+        this.currentFilter = filter;
+        this._onDidChangeTreeData.fire();
+    }
+
+    setSort(sort: PrSort): void {
+        this.currentSort = sort;
+        this._onDidChangeTreeData.fire();
+    }
+
+    getFilterLabel(): string {
+        const labels: Record<PrFilter, string> = {
+            all: '',
+            draft: 'Drafts',
+            needsMyVote: 'Needs my vote',
+            hasComments: 'Has unresolved comments',
+            checksFailing: 'Checks failing',
+        };
+        return labels[this.currentFilter];
+    }
+
+    private filterPrs(prs: EnrichedPullRequest[]): EnrichedPullRequest[] {
+        switch (this.currentFilter) {
+            case 'draft':
+                return prs.filter(pr => pr.isDraft);
+            case 'needsMyVote':
+                return prs.filter(pr => {
+                    const myReview = pr.reviewers?.find(r => r.id === this.cachedUserId);
+                    return myReview && myReview.vote === 0;
+                });
+            case 'hasComments':
+                return prs.filter(pr => pr.unresolvedCommentCount > 0);
+            case 'checksFailing':
+                return prs.filter(pr => pr.checksStatus === 'failed');
+            default:
+                return prs;
+        }
+    }
+
+    private sortPrs(prs: EnrichedPullRequest[]): EnrichedPullRequest[] {
+        switch (this.currentSort) {
+            case 'title':
+                return [...prs].sort((a, b) => a.title.localeCompare(b.title));
+            case 'commentCount':
+                return [...prs].sort((a, b) => b.unresolvedCommentCount - a.unresolvedCommentCount);
+            default:
+                return prs;
+        }
     }
 
     getTreeItem(element: PullRequestItem): vscode.TreeItem {
@@ -174,6 +236,11 @@ export class PullRequestTreeProvider implements vscode.TreeDataProvider<PullRequ
             return [PullRequestItem.message(e.message || 'Failed to get Azure DevOps organization')];
         }
 
+        this.cachedOrg = org;
+        try {
+            this.cachedUserId = await getUserId(org, token);
+        } catch { /* ignore */ }
+
         let result;
         try {
             result = await getMyPullRequests(org, token);
@@ -183,30 +250,29 @@ export class PullRequestTreeProvider implements vscode.TreeDataProvider<PullRequ
 
         const { createdByMe, assignedToMe, assignedToMyTeams } = result;
 
-        if (createdByMe.length === 0 && assignedToMe.length === 0 && assignedToMyTeams.length === 0) {
-            return [PullRequestItem.message('No pull requests')];
+        const filteredCreated = this.sortPrs(this.filterPrs(createdByMe));
+        const filteredAssigned = this.sortPrs(this.filterPrs(assignedToMe));
+        const filteredTeams = this.sortPrs(this.filterPrs(assignedToMyTeams));
+
+        if (filteredCreated.length === 0 && filteredAssigned.length === 0 && filteredTeams.length === 0) {
+            const filterLabel = this.getFilterLabel();
+            return [PullRequestItem.message(filterLabel ? `No pull requests matching "${filterLabel}"` : 'No pull requests')];
         }
 
         const categories: PullRequestItem[] = [];
 
-        if (createdByMe.length > 0) {
-            const items = createdByMe.map((pr) =>
-                PullRequestItem.fromPullRequest(pr, org)
-            );
+        if (filteredCreated.length > 0) {
+            const items = filteredCreated.map((pr) => PullRequestItem.fromPullRequest(pr, org));
             categories.push(PullRequestItem.fromCategory('Created by me', items));
         }
 
-        if (assignedToMe.length > 0) {
-            const items = assignedToMe.map((pr) =>
-                PullRequestItem.fromPullRequest(pr, org)
-            );
+        if (filteredAssigned.length > 0) {
+            const items = filteredAssigned.map((pr) => PullRequestItem.fromPullRequest(pr, org));
             categories.push(PullRequestItem.fromCategory('Assigned to me', items));
         }
 
-        if (assignedToMyTeams.length > 0) {
-            const items = assignedToMyTeams.map((pr) =>
-                PullRequestItem.fromPullRequest(pr, org)
-            );
+        if (filteredTeams.length > 0) {
+            const items = filteredTeams.map((pr) => PullRequestItem.fromPullRequest(pr, org));
             categories.push(PullRequestItem.fromCategory('Assigned to my teams', items));
         }
 

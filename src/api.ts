@@ -17,6 +17,12 @@ export interface EnrichedPullRequest extends PullRequest {
     checksStatus: 'passed' | 'failed' | 'running' | 'none';
 }
 
+export interface PrChange {
+    changeType: string; // 'add' | 'edit' | 'delete' | 'rename'
+    item: { path: string };
+    originalPath?: string;
+}
+
 function httpsGet(url: string, headers: Record<string, string>): Promise<string> {
     return new Promise((resolve, reject) => {
         const req = https.get(url, { headers }, (res) => {
@@ -36,6 +42,35 @@ function httpsGet(url: string, headers: Record<string, string>): Promise<string>
     });
 }
 
+function httpsRequest(url: string, method: string, headers: Record<string, string>, body?: unknown): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const urlObj = new URL(url);
+        const options = {
+            hostname: urlObj.hostname,
+            path: urlObj.pathname + urlObj.search,
+            method,
+            headers: {
+                ...headers,
+                ...(body ? { 'Content-Type': 'application/json' } : {}),
+            },
+        };
+        const req = https.request(options, (res) => {
+            let data = '';
+            res.on('data', (chunk: Buffer) => { data += chunk.toString(); });
+            res.on('end', () => {
+                if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+                    resolve(data);
+                } else {
+                    reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+                }
+            });
+        });
+        req.on('error', reject);
+        if (body) { req.write(JSON.stringify(body)); }
+        req.end();
+    });
+}
+
 export interface MyPullRequests {
     createdByMe: EnrichedPullRequest[];
     assignedToMe: EnrichedPullRequest[];
@@ -49,7 +84,7 @@ function authHeaders(token: string): Record<string, string> {
     };
 }
 
-async function getUserId(org: string, token: string): Promise<string> {
+export async function getUserId(org: string, token: string): Promise<string> {
     const url = `https://dev.azure.com/${encodeURIComponent(org)}/_apis/connectiondata`;
     const body = await httpsGet(url, authHeaders(token));
     const data = JSON.parse(body);
@@ -219,4 +254,78 @@ export async function getMyPullRequests(
         assignedToMe: enrichedAssigned,
         assignedToMyTeams: enrichedTeams,
     };
+}
+
+// --- PR mutation APIs (Phase 1) ---
+
+export async function updateReviewerVote(
+    org: string, project: string, repoId: string, prId: number,
+    reviewerId: string, vote: number, token: string
+): Promise<void> {
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/pullRequests/${prId}/reviewers/${reviewerId}?api-version=7.1`;
+    await httpsRequest(url, 'PUT', authHeaders(token), { vote });
+}
+
+export async function completePullRequest(
+    org: string, project: string, repoId: string, prId: number,
+    lastMergeSourceCommit: string, token: string
+): Promise<void> {
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/pullRequests/${prId}?api-version=7.1`;
+    await httpsRequest(url, 'PATCH', authHeaders(token), {
+        status: 'completed',
+        lastMergeSourceCommit: { commitId: lastMergeSourceCommit },
+    });
+}
+
+export async function abandonPullRequest(
+    org: string, project: string, repoId: string, prId: number, token: string
+): Promise<void> {
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/pullRequests/${prId}?api-version=7.1`;
+    await httpsRequest(url, 'PATCH', authHeaders(token), { status: 'abandoned' });
+}
+
+export async function addPullRequestComment(
+    org: string, project: string, repoId: string, prId: number,
+    content: string, token: string
+): Promise<void> {
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/pullRequests/${prId}/threads?api-version=7.1`;
+    await httpsRequest(url, 'POST', authHeaders(token), {
+        comments: [{ parentCommentId: 0, content, commentType: 1 }],
+        status: 1,
+    });
+}
+
+export async function getPullRequestDetails(
+    org: string, project: string, repoId: string, prId: number, token: string
+): Promise<any> {
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/pullRequests/${prId}?api-version=7.1`;
+    const body = await httpsGet(url, authHeaders(token));
+    return JSON.parse(body);
+}
+
+// --- PR diff APIs (Phase 2) ---
+
+export async function getPrIterations(
+    org: string, project: string, repoId: string, prId: number, token: string
+): Promise<Array<{ id: number; sourceRefCommit: { commitId: string }; targetRefCommit: { commitId: string } }>> {
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/pullRequests/${prId}/iterations?api-version=7.1`;
+    const body = await httpsGet(url, authHeaders(token));
+    const data = JSON.parse(body);
+    return data.value;
+}
+
+export async function getPrChanges(
+    org: string, project: string, repoId: string, prId: number, iterationId: number, token: string
+): Promise<PrChange[]> {
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/pullRequests/${prId}/iterations/${iterationId}/changes?api-version=7.1`;
+    const body = await httpsGet(url, authHeaders(token));
+    const data = JSON.parse(body);
+    return (data.changeEntries ?? []) as PrChange[];
+}
+
+export async function getFileContent(
+    org: string, project: string, repoId: string, path: string, commitId: string, token: string
+): Promise<string> {
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/items?path=${encodeURIComponent(path)}&versionDescriptor.version=${commitId}&versionDescriptor.versionType=commit&api-version=7.1`;
+    return await httpsGet(url, authHeaders(token));
 }

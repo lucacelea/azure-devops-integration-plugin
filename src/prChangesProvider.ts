@@ -1,0 +1,105 @@
+import * as vscode from 'vscode';
+import { EnrichedPullRequest, getPrIterations, getPrChanges, PrChange } from './api';
+import { getToken } from './auth';
+
+export class PrFileItem extends vscode.TreeItem {
+    constructor(
+        public readonly change: PrChange,
+        public readonly org: string,
+        public readonly project: string,
+        public readonly repoId: string,
+        public readonly sourceCommitId: string,
+        public readonly targetCommitId: string,
+    ) {
+        const fileName = change.item.path.split('/').pop() ?? change.item.path;
+        super(fileName, vscode.TreeItemCollapsibleState.None);
+
+        this.description = change.item.path;
+        this.tooltip = `${change.changeType}: ${change.item.path}`;
+        this.contextValue = 'prFile';
+
+        // Icon based on change type
+        switch (change.changeType) {
+            case 'add':
+                this.iconPath = new vscode.ThemeIcon('diff-added', new vscode.ThemeColor('gitDecoration.addedResourceForeground'));
+                break;
+            case 'delete':
+                this.iconPath = new vscode.ThemeIcon('diff-removed', new vscode.ThemeColor('gitDecoration.deletedResourceForeground'));
+                break;
+            case 'rename':
+                this.iconPath = new vscode.ThemeIcon('diff-renamed', new vscode.ThemeColor('gitDecoration.renamedResourceForeground'));
+                break;
+            default: // edit
+                this.iconPath = new vscode.ThemeIcon('diff-modified', new vscode.ThemeColor('gitDecoration.modifiedResourceForeground'));
+                break;
+        }
+
+        // Command to open diff
+        this.command = {
+            command: 'azureDevops.openPrFileDiff',
+            title: 'Open Diff',
+            arguments: [this],
+        };
+    }
+}
+
+export class PrChangesProvider implements vscode.TreeDataProvider<PrFileItem> {
+    private _onDidChangeTreeData = new vscode.EventEmitter<PrFileItem | undefined | void>();
+    readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+
+    private selectedPr?: EnrichedPullRequest;
+    private selectedOrg?: string;
+    private secretStorage: vscode.SecretStorage;
+
+    constructor(secretStorage: vscode.SecretStorage) {
+        this.secretStorage = secretStorage;
+    }
+
+    selectPr(pr: EnrichedPullRequest, org: string): void {
+        this.selectedPr = pr;
+        this.selectedOrg = org;
+        this._onDidChangeTreeData.fire();
+    }
+
+    clear(): void {
+        this.selectedPr = undefined;
+        this.selectedOrg = undefined;
+        this._onDidChangeTreeData.fire();
+    }
+
+    getTreeItem(element: PrFileItem): vscode.TreeItem {
+        return element;
+    }
+
+    async getChildren(): Promise<PrFileItem[]> {
+        if (!this.selectedPr || !this.selectedOrg) {
+            return [];
+        }
+
+        const token = await getToken(this.secretStorage);
+        if (!token) { return []; }
+
+        const pr = this.selectedPr;
+        const org = this.selectedOrg;
+        const project = pr.repository?.project?.name ?? '';
+        const repoId = pr.repository?.id ?? '';
+
+        try {
+            const iterations = await getPrIterations(org, project, repoId, pr.pullRequestId, token);
+            if (iterations.length === 0) { return []; }
+
+            const lastIteration = iterations[iterations.length - 1];
+            const changes = await getPrChanges(org, project, repoId, pr.pullRequestId, lastIteration.id, token);
+
+            const sourceCommitId = lastIteration.sourceRefCommit?.commitId ?? '';
+            const targetCommitId = lastIteration.targetRefCommit?.commitId ?? '';
+
+            return changes
+                .filter(c => c.item?.path)
+                .map(c => new PrFileItem(c, org, project, repoId, sourceCommitId, targetCommitId));
+        } catch (e: any) {
+            vscode.window.showErrorMessage(`Failed to load PR changes: ${e.message}`);
+            return [];
+        }
+    }
+}
