@@ -326,6 +326,6 @@ export async function getPrChanges(
 export async function getFileContent(
     org: string, project: string, repoId: string, path: string, commitId: string, token: string
 ): Promise<string> {
-    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/items?path=${encodeURIComponent(path)}&versionDescriptor.version=${commitId}&versionDescriptor.versionType=commit&api-version=7.1`;
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/items?path=${encodeURIComponent(path)}&versionDescriptor.version=${commitId}&versionDescriptor.versionType=commit&$format=text&api-version=7.1`;
     return await httpsGet(url, authHeaders(token));
 }
