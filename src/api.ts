@@ -303,6 +303,48 @@ export async function getPullRequestDetails(
     return JSON.parse(body);
 }
 
+export interface CreatePullRequestOptions {
+    org: string;
+    project: string;
+    repoId: string;
+    sourceRefName: string;
+    targetRefName: string;
+    title: string;
+    description?: string;
+    workItemIds?: number[];
+    isDraft?: boolean;
+    token: string;
+}
+
+export async function createPullRequestApi(options: CreatePullRequestOptions): Promise<{ pullRequestId: number }> {
+    const { org, project, repoId, token, workItemIds, ...rest } = options;
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/pullRequests?api-version=7.1`;
+
+    const body: Record<string, unknown> = {
+        sourceRefName: rest.sourceRefName,
+        targetRefName: rest.targetRefName,
+        title: rest.title,
+        description: rest.description ?? '',
+        isDraft: rest.isDraft ?? false,
+    };
+
+    if (workItemIds && workItemIds.length > 0) {
+        body.workItemRefs = workItemIds.map(id => ({ id: String(id) }));
+    }
+
+    const response = await httpsRequest(url, 'POST', authHeaders(token), body);
+    return JSON.parse(response);
+}
+
+export async function getRepositoryId(
+    org: string, project: string, repoName: string, token: string
+): Promise<string> {
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${encodeURIComponent(repoName)}?api-version=7.1`;
+    const body = await httpsGet(url, authHeaders(token));
+    const data = JSON.parse(body);
+    return data.id;
+}
+
 // --- PR diff APIs (Phase 2) ---
 
 export async function getPrIterations(

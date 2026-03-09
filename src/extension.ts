@@ -18,7 +18,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Register commands
     context.subscriptions.push(
-        vscode.commands.registerCommand('azureDevops.createPullRequest', createPullRequest),
+        vscode.commands.registerCommand('azureDevops.createPullRequest', () => createPullRequest(secretStorage)),
         vscode.commands.registerCommand('azureDevops.openRepository', openRepository),
         vscode.commands.registerCommand('azureDevops.openWorkItem', openWorkItem),
         vscode.commands.registerCommand('azureDevops.setToken', async () => {
