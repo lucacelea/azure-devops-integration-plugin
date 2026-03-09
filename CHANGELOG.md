@@ -4,6 +4,29 @@ All notable changes to the "Azure DevOps Integration" extension will be document
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.0] - 2026-03-09
+
+### Added
+
+- **PR review actions** from the sidebar context menu: Approve, Approve with Suggestions, Wait for Author, Reject, and Reset Vote
+- **Complete Pull Request** to merge a PR directly from VS Code with confirmation dialog
+- **Abandon Pull Request** to close a PR without merging
+- **Add Comment** to post a general comment on a PR
+- **Checkout Branch** to check out a PR's source branch locally
+- **Review Changes** to view files changed in a PR with a dedicated tree view
+- **Inline diff view** for PR file changes using a custom `azuredevops-pr://` content provider
+- **Filter Pull Requests** by draft, needs my vote, has comments, or checks failing
+- **Sort Pull Requests** by title or comment count
+- **Open in Browser** context menu action for PRs
+- API-based PR creation flow with title auto-suggestion, target branch selection, and draft option
+- Support for legacy `visualstudio.com` remote URL format
+
+### Changed
+
+- PR creation now uses the Azure DevOps API instead of opening the browser to the create page
+
+---
+
 ## [0.1.0] - 2026-03-08
 
 ### Added
