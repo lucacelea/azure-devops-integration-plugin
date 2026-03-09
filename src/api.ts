@@ -3,7 +3,7 @@ import * as https from 'https';
 export interface PullRequest {
     pullRequestId: number;
     title: string;
-    sourceBranch: string;
+    sourceRefName: string;
     createdBy: { displayName: string; id: string };
     reviewers: Array<{ displayName: string; vote: number; id: string }>;
     repository: { id: string; name: string; project: { id: string; name: string } };

@@ -17,9 +17,39 @@ export class PullRequestItem extends vscode.TreeItem {
         this.children = children;
     }
 
-    static fromCategory(name: string, children: PullRequestItem[]): PullRequestItem {
+    static fromCategory(name: string, prItems: PullRequestItem[]): PullRequestItem {
+        // Group PRs by repository
+        const repoGroups = new Map<string, PullRequestItem[]>();
+        for (const prItem of prItems) {
+            const repoName = prItem.pr?.repository?.name ?? 'Unknown';
+            let group = repoGroups.get(repoName);
+            if (!group) {
+                group = [];
+                repoGroups.set(repoName, group);
+            }
+            group.push(prItem);
+        }
+
+        let children: PullRequestItem[];
+        if (repoGroups.size === 1) {
+            // Single repo — no need for an extra nesting level
+            children = prItems;
+        } else {
+            // Multiple repos — add repo sub-groups
+            children = [];
+            for (const [repoName, items] of repoGroups) {
+                const repoItem = new PullRequestItem(
+                    `${repoName} (${items.length})`,
+                    vscode.TreeItemCollapsibleState.Expanded,
+                    items
+                );
+                repoItem.iconPath = new vscode.ThemeIcon('repo');
+                children.push(repoItem);
+            }
+        }
+
         const item = new PullRequestItem(
-            `${name} (${children.length})`,
+            `${name} (${prItems.length})`,
             vscode.TreeItemCollapsibleState.Expanded,
             children
         );
@@ -30,7 +60,7 @@ export class PullRequestItem extends vscode.TreeItem {
         pr: EnrichedPullRequest,
         org: string
     ): PullRequestItem {
-        const branch = pr.sourceBranch?.replace(/^refs\/heads\//, '') ?? '';
+        const branch = pr.sourceRefName?.replace(/^refs\/heads\//, '') ?? '';
         const repoName = pr.repository?.name ?? '';
         const prProject = pr.repository?.project?.name ?? '';
         const prUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(prProject)}/_git/${encodeURIComponent(repoName)}/pullrequest/${pr.pullRequestId}`;

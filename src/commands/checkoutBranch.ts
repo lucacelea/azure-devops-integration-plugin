@@ -21,7 +21,7 @@ export async function checkoutPrBranch(item: PullRequestItem): Promise<void> {
         return;
     }
 
-    const branch = pr.sourceBranch?.replace(/^refs\/heads\//, '');
+    const branch = pr.sourceRefName?.replace(/^refs\/heads\//, '');
     if (!branch) {
         vscode.window.showErrorMessage('No source branch found.');
         return;
