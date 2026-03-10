@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
-import { getDevOpsConfig, getBaseUrl } from '../config';
+import { getDevOpsConfig, getBaseUrl, getWorkItemProject } from '../config';
 import { getCurrentBranch, getDefaultBranch } from '../git';
 import { getWorkItemId } from '../workItem';
 import { getToken } from '../auth';
-import { createPullRequestApi, getRepositoryId } from '../api';
+import { createPullRequestApi, getRepositoryId, updateWorkItemState } from '../api';
 
 export async function createPullRequest(secretStorage: vscode.SecretStorage): Promise<void> {
     try {
@@ -41,10 +41,16 @@ export async function createPullRequest(secretStorage: vscode.SecretStorage): Pr
 
         // Gather PR details
         const workItemId = await getWorkItemId();
+        const parsedWorkItemId = workItemId ? parseInt(workItemId, 10) : undefined;
+        const hasValidWorkItemId = parsedWorkItemId !== undefined && !Number.isNaN(parsedWorkItemId);
+        const workItemState = vscode.workspace
+            .getConfiguration('azureDevops')
+            .get<string>('pullRequestLinkedWorkItemState', '')
+            .trim();
 
         const defaultTitle = branch
             .replace(/^(?:feature|bugfix|hotfix|fix|task|chore)\//, '')
-            .replace(/^\d+[-_]?/, workItemId ? `AB#${workItemId} ` : '')
+            .replace(/^\d+[-_]?/, hasValidWorkItemId ? `AB#${parsedWorkItemId} ` : '')
             .replace(/[-_]/g, ' ')
             .trim();
 
@@ -79,10 +85,27 @@ export async function createPullRequest(secretStorage: vscode.SecretStorage): Pr
                     sourceRefName: `refs/heads/${branch}`,
                     targetRefName: `refs/heads/${targetBranch}`,
                     title,
-                    workItemIds: workItemId ? [parseInt(workItemId, 10)] : undefined,
+                    workItemIds: hasValidWorkItemId ? [parsedWorkItemId] : undefined,
                     isDraft: isDraft.value,
                     token,
                 });
+
+                if (hasValidWorkItemId && workItemState) {
+                    try {
+                        const workItemProject = await getWorkItemProject();
+                        await updateWorkItemState(
+                            config.organization,
+                            workItemProject,
+                            parsedWorkItemId,
+                            workItemState,
+                            token
+                        );
+                    } catch (error) {
+                        vscode.window.showWarningMessage(
+                            `PR created, but failed to set linked work item #${workItemId} state to "${workItemState}": ${error instanceof Error ? error.message : error}`
+                        );
+                    }
+                }
 
                 const prUrl = `${getBaseUrl(config)}/pullrequest/${pr.pullRequestId}`;
                 const action = await vscode.window.showInformationMessage(

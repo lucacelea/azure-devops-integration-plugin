@@ -269,6 +269,11 @@
           "default": "",
           "description": "Custom regex pattern to extract work item ID from branch name. Must contain a capture group for the ID. Leave empty to use default patterns."
         },
+        "azureDevops.pullRequestLinkedWorkItemState": {
+          "type": "string",
+          "default": "",
+          "description": "Optional state to set on the work item linked during pull request creation (for example: 'To verify'). Leave empty to keep the current state."
+        },
         "azureDevops.pullRequestRefreshInterval": {
           "type": "number",
           "default": 300,

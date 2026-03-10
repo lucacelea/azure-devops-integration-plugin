@@ -51,7 +51,7 @@ function httpsRequest(url: string, method: string, headers: Record<string, strin
             method,
             headers: {
                 ...headers,
-                ...(body ? { 'Content-Type': 'application/json' } : {}),
+                ...(body && !headers['Content-Type'] ? { 'Content-Type': 'application/json' } : {}),
             },
         };
         const req = https.request(options, (res) => {
@@ -343,6 +343,18 @@ export async function getRepositoryId(
     const body = await httpsGet(url, authHeaders(token));
     const data = JSON.parse(body);
     return data.id;
+}
+
+export async function updateWorkItemState(
+    org: string, project: string, workItemId: number, state: string, token: string
+): Promise<void> {
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/wit/workitems/${workItemId}?api-version=7.1`;
+    await httpsRequest(url, 'PATCH', {
+        ...authHeaders(token),
+        'Content-Type': 'application/json-patch+json',
+    }, [
+        { op: 'add', path: '/fields/System.State', value: state },
+    ]);
 }
 
 // --- PR diff APIs (Phase 2) ---
