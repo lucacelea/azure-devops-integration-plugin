@@ -84,6 +84,7 @@ export function activate(context: vscode.ExtensionContext) {
     prCommentController.loadExisting();
     context.subscriptions.push(
         prCommentController,
+        prCommentController.onDidAddComment(() => prDiscussionProvider.refresh()),
         vscode.commands.registerCommand('azureDevops.replyToComment', (reply: vscode.CommentReply) => {
             return prCommentController.replyToThread(reply);
         }),

@@ -21,6 +21,9 @@ export class PrCommentController implements vscode.Disposable {
     private readonly disposables: vscode.Disposable[] = [];
     private readonly threadMeta = new WeakMap<vscode.CommentThread, ThreadMeta>();
 
+    private readonly _onDidAddComment = new vscode.EventEmitter<void>();
+    readonly onDidAddComment = this._onDidAddComment.event;
+
     constructor(secretStorage: vscode.SecretStorage) {
         this.secretStorage = secretStorage;
         this.controller = vscode.comments.createCommentController(
@@ -216,6 +219,7 @@ export class PrCommentController implements vscode.Disposable {
             const existing = this.vsThreads.get(cacheKey) ?? [];
             existing.push(reply.thread);
             this.vsThreads.set(cacheKey, existing);
+            this._onDidAddComment.fire();
         } catch (e: unknown) {
             const msg = e instanceof Error ? e.message : 'Unknown error';
             vscode.window.showErrorMessage(`Failed to add comment: ${msg}`);
@@ -250,6 +254,7 @@ export class PrCommentController implements vscode.Disposable {
                     timestamp: new Date(),
                 },
             ];
+            this._onDidAddComment.fire();
         } catch (e: unknown) {
             const msg = e instanceof Error ? e.message : 'Unknown error';
             vscode.window.showErrorMessage(`Failed to reply: ${msg}`);
@@ -274,6 +279,7 @@ export class PrCommentController implements vscode.Disposable {
     dispose(): void {
         this.clearAll();
         this.controller.dispose();
+        this._onDidAddComment.dispose();
         for (const d of this.disposables) { d.dispose(); }
     }
 }
