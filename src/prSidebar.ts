@@ -61,9 +61,6 @@ export class PullRequestItem extends vscode.TreeItem {
         org: string
     ): PullRequestItem {
         const branch = pr.sourceRefName?.replace(/^refs\/heads\//, '') ?? '';
-        const repoName = pr.repository?.name ?? '';
-        const prProject = pr.repository?.project?.name ?? '';
-        const prUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(prProject)}/_git/${encodeURIComponent(repoName)}/pullrequest/${pr.pullRequestId}`;
 
         const reviewers = pr.reviewers ?? [];
         const hasRejection = reviewers.some((r) => r.vote === -10);
