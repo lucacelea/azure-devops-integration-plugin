@@ -34,6 +34,10 @@ export async function getDefaultBranch(): Promise<string> {
     return 'main';
 }
 
+export async function getRepositoryRoot(): Promise<string | undefined> {
+    return runGitCommand('git rev-parse --show-toplevel');
+}
+
 export async function getRemoteUrl(): Promise<string | undefined> {
     return runGitCommand('git remote get-url origin');
 }

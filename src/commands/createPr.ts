@@ -2,14 +2,14 @@ import * as vscode from 'vscode';
 import { readFile } from 'fs/promises';
 import * as path from 'path';
 import { getDevOpsConfig, getBaseUrl } from '../config';
-import { getCurrentBranch, getDefaultBranch } from '../git';
+import { getCurrentBranch, getDefaultBranch, getRepositoryRoot } from '../git';
 import { getWorkItemId } from '../workItem';
 import { getToken } from '../auth';
 import { createPullRequestApi, getRepositoryId } from '../api';
 
 async function getPullRequestTemplate(): Promise<string | undefined> {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (!workspaceFolder) {
+    const repoRoot = await getRepositoryRoot();
+    if (!repoRoot) {
         return undefined;
     }
 
@@ -23,7 +23,7 @@ async function getPullRequestTemplate(): Promise<string | undefined> {
 
     for (const templatePath of templatePaths) {
         try {
-            const content = await readFile(path.join(workspaceFolder, templatePath), 'utf-8');
+            const content = await readFile(path.join(repoRoot, templatePath), 'utf-8');
             if (content.trim()) {
                 return content;
             }
@@ -33,6 +33,35 @@ async function getPullRequestTemplate(): Promise<string | undefined> {
     }
 
     return undefined;
+}
+
+async function editPullRequestDescription(template?: string): Promise<string | null> {
+    if (!template) {
+        return '';
+    }
+
+    const doc = await vscode.workspace.openTextDocument({
+        content: template,
+        language: 'markdown',
+    });
+    const editor = await vscode.window.showTextDocument(doc);
+
+    const action = await vscode.window.showInformationMessage(
+        'Edit the PR description above, then click "Submit".',
+        'Submit',
+        'Skip'
+    );
+
+    const result = action === 'Submit' ? doc.getText()
+        : action === 'Skip' ? ''
+        : null;
+
+    // Close the temporary editor tab
+    if (vscode.window.activeTextEditor === editor) {
+        await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+    }
+
+    return result;
 }
 
 export async function createPullRequest(secretStorage: vscode.SecretStorage): Promise<void> {
@@ -96,7 +125,9 @@ export async function createPullRequest(secretStorage: vscode.SecretStorage): Pr
         );
         if (!isDraft) { return; }
 
-        const description = await getPullRequestTemplate();
+        const template = await getPullRequestTemplate();
+        const description = await editPullRequestDescription(template);
+        if (description === null) { return; }
 
         // Create via API
         await vscode.window.withProgress(
