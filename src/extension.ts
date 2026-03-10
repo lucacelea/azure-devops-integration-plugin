@@ -139,6 +139,8 @@ export function activate(context: vscode.ExtensionContext) {
             const selection = editor.selection;
             const startLine = selection.start.line + 1; // VS Code is 0-based, API is 1-based
             const endLine = selection.end.line + 1;
+            const startOffset = selection.start.character + 1; // 1-based offset
+            const endOffset = selection.end.character + 1;
             const lineLabel = startLine === endLine ? `line ${startLine}` : `lines ${startLine}-${endLine}`;
 
             const comment = await vscode.window.showInputBox({
@@ -147,8 +149,8 @@ export function activate(context: vscode.ExtensionContext) {
             });
             if (!comment) { return; }
 
-            const position = { line: startLine, offset: 1 };
-            const endPosition = { line: endLine, offset: 1 };
+            const position = { line: startLine, offset: startOffset };
+            const endPosition = { line: endLine, offset: endOffset };
             const isRight = prContext.side !== 'left';
 
             try {

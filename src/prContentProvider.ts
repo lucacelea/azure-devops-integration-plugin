@@ -64,6 +64,9 @@ export function parsePrFileUri(uri: vscode.Uri): PrFileUriContext | undefined {
     const org = decodeURIComponent(uri.authority);
     const parts = uri.path.split('/');
     // parts[0] is empty (leading slash), parts[1] = project, parts[2] = repoId, parts[3] = commitId, rest = filePath
+    if (parts.length < 5) {
+        return undefined;
+    }
     const project = decodeURIComponent(parts[1]);
     const repoId = parts[2];
     const commitId = parts[3];
