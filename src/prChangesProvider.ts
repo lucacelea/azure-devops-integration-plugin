@@ -10,6 +10,7 @@ export class PrFileItem extends vscode.TreeItem {
         public readonly repoId: string,
         public readonly sourceCommitId: string,
         public readonly targetCommitId: string,
+        public readonly prId: number,
     ) {
         const fileName = change.item.path.split('/').pop() ?? change.item.path;
         super(fileName, vscode.TreeItemCollapsibleState.None);
@@ -96,7 +97,7 @@ export class PrChangesProvider implements vscode.TreeDataProvider<PrFileItem> {
 
             return changes
                 .filter(c => c.item?.path)
-                .map(c => new PrFileItem(c, org, project, repoId, sourceCommitId, targetCommitId));
+                .map(c => new PrFileItem(c, org, project, repoId, sourceCommitId, targetCommitId, pr.pullRequestId));
         } catch (e: any) {
             vscode.window.showErrorMessage(`Failed to load PR changes: ${e.message}`);
             return [];

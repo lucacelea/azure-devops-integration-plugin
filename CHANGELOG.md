@@ -4,18 +4,13 @@ All notable changes to the "Azure DevOps Integration" extension will be document
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-# Changelog
-
-All notable changes to the "Azure DevOps Integration" extension will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
-
 ## [0.2.1] - 2026-03-10
 
 ### Added
 
 - **Add Comment on Line** command for posting inline comments on PR diffs from the editor
 - **Configurable linked work item state on PR creation**: new setting `azureDevops.pullRequestLinkedWorkItemState` lets you specify a state (e.g. `To verify`) to automatically apply to the linked work item when creating a pull request. Leave empty to disable the transition.
+- When creating a pull request, the template will now be used. You can edit it beforehand too.
 
 ### Fixed
 
