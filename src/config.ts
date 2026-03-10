@@ -13,15 +13,23 @@ interface ParsedRemote {
     repository?: string;
 }
 
+function decodeUrlComponent(value: string): string {
+    try {
+        return decodeURIComponent(value);
+    } catch {
+        return value;
+    }
+}
+
 function parseRemoteUrl(url: string): ParsedRemote {
     // HTTPS: https://dev.azure.com/{org}/{project}/_git/{repo}
     // Also handles: https://{user}@dev.azure.com/{org}/{project}/_git/{repo}
     const httpsMatch = url.match(/https?:\/\/(?:[^@]+@)?dev\.azure\.com\/([^/]+)\/([^/]+)\/_git\/([^/\s]+)/);
     if (httpsMatch) {
         return {
-            organization: httpsMatch[1],
-            project: httpsMatch[2],
-            repository: httpsMatch[3],
+            organization: decodeUrlComponent(httpsMatch[1]),
+            project: decodeUrlComponent(httpsMatch[2]),
+            repository: decodeUrlComponent(httpsMatch[3]),
         };
     }
 
@@ -29,9 +37,9 @@ function parseRemoteUrl(url: string): ParsedRemote {
     const sshMatch = url.match(/git@ssh\.dev\.azure\.com:v3\/([^/]+)\/([^/]+)\/([^/\s]+)/);
     if (sshMatch) {
         return {
-            organization: sshMatch[1],
-            project: sshMatch[2],
-            repository: sshMatch[3],
+            organization: decodeUrlComponent(sshMatch[1]),
+            project: decodeUrlComponent(sshMatch[2]),
+            repository: decodeUrlComponent(sshMatch[3]),
         };
     }
 
@@ -39,9 +47,9 @@ function parseRemoteUrl(url: string): ParsedRemote {
     const oldHttpsMatch = url.match(/https?:\/\/([^.]+)\.visualstudio\.com\/([^/]+)\/_git\/([^/\s]+)/);
     if (oldHttpsMatch) {
         return {
-            organization: oldHttpsMatch[1],
-            project: oldHttpsMatch[2],
-            repository: oldHttpsMatch[3],
+            organization: decodeUrlComponent(oldHttpsMatch[1]),
+            project: decodeUrlComponent(oldHttpsMatch[2]),
+            repository: decodeUrlComponent(oldHttpsMatch[3]),
         };
     }
 
@@ -141,4 +149,3 @@ export async function getWorkItemProject(): Promise<string> {
 export function getBaseUrl(config: DevOpsConfig): string {
     return `https://dev.azure.com/${encodeURIComponent(config.organization)}/${encodeURIComponent(config.project)}/_git/${encodeURIComponent(config.repository)}`;
 }
-
