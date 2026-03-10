@@ -102,7 +102,7 @@ export async function createPullRequest(secretStorage: vscode.SecretStorage): Pr
                         );
                     } catch (error) {
                         vscode.window.showWarningMessage(
-                            `PR created, but failed to set linked work item #${workItemId} state to "${workItemState}": ${error instanceof Error ? error.message : error}`
+                            `PR created, but failed to set linked work item #${parsedWorkItemId} state to "${workItemState}": ${error instanceof Error ? error.message : error}`
                         );
                     }
                 }
