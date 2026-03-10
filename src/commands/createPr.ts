@@ -15,9 +15,8 @@ async function getPullRequestTemplate(): Promise<string | undefined> {
 
     const templatePaths = [
         '.azuredevops/pull_request_template.md',
+        '.azuredevops/PULL_REQUEST_TEMPLATE.md',
         '.azuredevops/pull_request_template.txt',
-        '.github/pull_request_template.md',
-        '.github/PULL_REQUEST_TEMPLATE.md',
         'pull_request_template.md',
         'PULL_REQUEST_TEMPLATE.md',
     ];
