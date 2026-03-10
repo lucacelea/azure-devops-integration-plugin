@@ -149,4 +149,3 @@ export async function getWorkItemProject(): Promise<string> {
 export function getBaseUrl(config: DevOpsConfig): string {
     return `https://dev.azure.com/${encodeURIComponent(config.organization)}/${encodeURIComponent(config.project)}/_git/${encodeURIComponent(config.repository)}`;
 }
-
