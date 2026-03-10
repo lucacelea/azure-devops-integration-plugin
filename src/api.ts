@@ -361,6 +361,27 @@ export async function createPullRequestApi(options: CreatePullRequestOptions): P
     return JSON.parse(response);
 }
 
+export interface AutoCompleteOptions {
+    mergeStrategy: 'noFastForward' | 'squash' | 'rebase' | 'rebaseMerge';
+    deleteSourceBranch: boolean;
+    completeWorkItems: boolean;
+}
+
+export async function setAutoComplete(
+    org: string, project: string, repoId: string, prId: number,
+    userId: string, options: AutoCompleteOptions, token: string
+): Promise<void> {
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/pullRequests/${prId}?api-version=7.1`;
+    await httpsRequest(url, 'PATCH', authHeaders(token), {
+        autoCompleteSetBy: { id: userId },
+        completionOptions: {
+            mergeStrategy: options.mergeStrategy,
+            deleteSourceBranch: options.deleteSourceBranch,
+            transitionWorkItems: options.completeWorkItems,
+        },
+    });
+}
+
 export async function getRepositoryId(
     org: string, project: string, repoName: string, token: string
 ): Promise<string> {

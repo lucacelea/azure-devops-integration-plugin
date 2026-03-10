@@ -6,7 +6,7 @@ import { getDevOpsConfig, getBaseUrl, getWorkItemProject } from '../config';
 import { getCurrentBranch, getDefaultBranch, getRepositoryRoot } from '../git';
 import { getWorkItemId } from '../workItem';
 import { getToken } from '../auth';
-import { createPullRequestApi, getRepositoryId, updateWorkItemState } from '../api';
+import { createPullRequestApi, getRepositoryId, getUserId, setAutoComplete, updateWorkItemState } from '../api';
 
 async function getPullRequestTemplate(): Promise<string | undefined> {
     const repoRoot = await getRepositoryRoot();
@@ -181,6 +181,30 @@ export async function createPullRequest(secretStorage: vscode.SecretStorage): Pr
                     } catch (error) {
                         vscode.window.showWarningMessage(
                             `PR created, but failed to set linked work item #${parsedWorkItemId} state to "${workItemState}": ${error instanceof Error ? error.message : error}`
+                        );
+                    }
+                }
+
+                const settings = vscode.workspace.getConfiguration('azureDevops');
+                if (settings.get<boolean>('pullRequestAutoComplete', false) && !isDraft.value) {
+                    try {
+                        const userId = await getUserId(config.organization, token);
+                        await setAutoComplete(
+                            config.organization,
+                            config.project,
+                            repoId,
+                            result.pullRequestId,
+                            userId,
+                            {
+                                mergeStrategy: settings.get<'squash'>('pullRequestMergeStrategy', 'squash'),
+                                deleteSourceBranch: settings.get<boolean>('pullRequestDeleteSourceBranch', true),
+                                completeWorkItems: settings.get<boolean>('pullRequestCompleteWorkItems', true),
+                            },
+                            token
+                        );
+                    } catch (error) {
+                        vscode.window.showWarningMessage(
+                            `PR created, but failed to set auto-complete: ${error instanceof Error ? error.message : error}`
                         );
                     }
                 }

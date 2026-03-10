@@ -294,6 +294,33 @@
           "default": 300,
           "minimum": 30,
           "description": "Interval in seconds to auto-refresh the pull request list (minimum 30)."
+        },
+        "azureDevops.pullRequestAutoComplete": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically set auto-complete on newly created pull requests."
+        },
+        "azureDevops.pullRequestMergeStrategy": {
+          "type": "string",
+          "default": "squash",
+          "enum": ["noFastForward", "squash", "rebase", "rebaseMerge"],
+          "enumDescriptions": [
+            "Merge (no fast-forward)",
+            "Squash commit",
+            "Rebase and fast-forward",
+            "Semi-linear merge"
+          ],
+          "description": "Merge strategy to use when auto-completing a pull request."
+        },
+        "azureDevops.pullRequestDeleteSourceBranch": {
+          "type": "boolean",
+          "default": true,
+          "description": "Delete source branch after merging when auto-complete is set."
+        },
+        "azureDevops.pullRequestCompleteWorkItems": {
+          "type": "boolean",
+          "default": true,
+          "description": "Complete associated work items after merging when auto-complete is set."
         }
       }
     }

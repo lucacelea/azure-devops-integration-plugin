@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Auto-complete on PR creation**: new setting `azureDevops.pullRequestAutoComplete` enables auto-complete on newly created pull requests. Configure merge strategy (`azureDevops.pullRequestMergeStrategy`), source branch deletion (`azureDevops.pullRequestDeleteSourceBranch`), and work item completion (`azureDevops.pullRequestCompleteWorkItems`). Skipped for draft PRs.
 - **Add Comment on Line** command for posting inline comments on PR diffs from the editor
 - **Configurable linked work item state on PR creation**: new setting `azureDevops.pullRequestLinkedWorkItemState` lets you specify a state (e.g. `To verify`) to automatically apply to the linked work item when creating a pull request. Leave empty to disable the transition.
 - **Pull request template support**: automatically detects PR templates (`.azuredevops/pull_request_template.md` and common variants) and opens them in an editor tab when creating a PR. Edit the description and close the tab to submit, or clear all text to skip — no save prompts, similar to git commit messages.
