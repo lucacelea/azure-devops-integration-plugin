@@ -2,14 +2,15 @@ import * as vscode from 'vscode';
 import { createPullRequest } from './commands/createPr';
 import { openRepository } from './commands/openRepo';
 import { openWorkItem } from './commands/openWorkItem';
-import { setToken, removeToken, getToken } from './auth';
+import { setToken, removeToken } from './auth';
 import { createStatusBarItem } from './statusBar';
 import { registerPrSidebar, PrFilter, PrSort } from './prSidebar';
 import { registerPrActions } from './commands/prActions';
 import { checkoutPrBranch } from './commands/checkoutBranch';
 import { PrChangesProvider, PrFileItem } from './prChangesProvider';
-import { PrContentProvider, buildPrFileUri, parsePrFileUri } from './prContentProvider';
-import { addPullRequestFileComment } from './api';
+import { PrContentProvider, buildPrFileUri } from './prContentProvider';
+import { PrCommentController } from './prComments';
+import { PrDiscussionProvider, PrDiscussionItem } from './prDiscussionProvider';
 
 export function activate(context: vscode.ExtensionContext) {
     const secretStorage = context.secrets;
@@ -78,6 +79,16 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.workspace.registerTextDocumentContentProvider('azuredevops-pr', prContentProvider)
     );
 
+    // PR comment controller — shows Azure DevOps threads on diff views
+    const prCommentController = new PrCommentController(secretStorage);
+    prCommentController.loadExisting();
+    context.subscriptions.push(
+        prCommentController,
+        vscode.commands.registerCommand('azureDevops.replyToComment', (reply: vscode.CommentReply) => {
+            return prCommentController.replyToThread(reply);
+        }),
+    );
+
     // PR changes tree view (Phase 2)
     const prChangesProvider = new PrChangesProvider(secretStorage);
     const prChangesTree = vscode.window.createTreeView('azureDevops.prChanges', {
@@ -85,16 +96,43 @@ export function activate(context: vscode.ExtensionContext) {
     });
     context.subscriptions.push(prChangesTree);
 
+    // PR Discussion tree view
+    const prDiscussionProvider = new PrDiscussionProvider(secretStorage);
+    const prDiscussionTree = vscode.window.createTreeView('azureDevops.prDiscussion', {
+        treeDataProvider: prDiscussionProvider,
+    });
+
     context.subscriptions.push(
+        prDiscussionTree,
         vscode.commands.registerCommand('azureDevops.reviewPrChanges', (item: any) => {
             if (item?.pr && item?.org) {
                 prChangesProvider.selectPr(item.pr, item.org);
                 prChangesTree.title = `Changes: #${item.pr.pullRequestId}`;
+                prDiscussionProvider.selectPr(item.pr, item.org);
+                prDiscussionTree.title = `Discussion: #${item.pr.pullRequestId}`;
             }
         }),
         vscode.commands.registerCommand('azureDevops.clearPrChanges', () => {
             prChangesProvider.clear();
+            prCommentController.clearAll();
             prChangesTree.title = 'PR Changes';
+        }),
+        vscode.commands.registerCommand('azureDevops.refreshPrDiscussion', () => {
+            prDiscussionProvider.refresh();
+            prCommentController.refreshAll();
+        }),
+        vscode.commands.registerCommand('azureDevops.clearPrDiscussion', () => {
+            prDiscussionProvider.clear();
+            prDiscussionTree.title = 'PR Discussion';
+        }),
+        vscode.commands.registerCommand('azureDevops.openDiscussionComment', (item: PrDiscussionItem) => {
+            return prDiscussionProvider.openComment(item);
+        }),
+        vscode.commands.registerCommand('azureDevops.replyToDiscussionThread', (item: PrDiscussionItem) => {
+            return prDiscussionProvider.replyToDiscussionThread(item);
+        }),
+        vscode.commands.registerCommand('azureDevops.addGeneralComment', () => {
+            return prDiscussionProvider.addGeneralComment();
         }),
         vscode.commands.registerCommand('azureDevops.openPrFileDiff', async (fileItem: PrFileItem) => {
             const change = fileItem.change;
@@ -117,60 +155,6 @@ export function activate(context: vscode.ExtensionContext) {
         }),
     );
 
-    // Add comment from diff view
-    context.subscriptions.push(
-        vscode.commands.registerCommand('azureDevops.addDiffComment', async () => {
-            const editor = vscode.window.activeTextEditor;
-            if (!editor) { return; }
-
-            const uri = editor.document.uri;
-            const prContext = parsePrFileUri(uri);
-            if (!prContext || prContext.prId === undefined) {
-                vscode.window.showErrorMessage('This file is not part of a PR diff.');
-                return;
-            }
-
-            const token = await getToken(secretStorage);
-            if (!token) {
-                vscode.window.showErrorMessage('No PAT configured.');
-                return;
-            }
-
-            const selection = editor.selection;
-            const startLine = selection.start.line + 1; // VS Code is 0-based, API is 1-based
-            const endLine = selection.end.line + 1;
-            const startOffset = selection.start.character + 1; // 1-based offset
-            const endOffset = selection.end.character + 1;
-            const lineLabel = startLine === endLine ? `line ${startLine}` : `lines ${startLine}-${endLine}`;
-
-            const comment = await vscode.window.showInputBox({
-                prompt: `Add comment on ${prContext.filePath} (${lineLabel})`,
-                placeHolder: 'Type your comment...',
-            });
-            if (!comment) { return; }
-
-            const position = { line: startLine, offset: startOffset };
-            const endPosition = { line: endLine, offset: endOffset };
-            const isRight = prContext.side !== 'left';
-
-            try {
-                await addPullRequestFileComment(
-                    prContext.org, prContext.project, prContext.repoId, prContext.prId,
-                    comment,
-                    {
-                        filePath: prContext.filePath,
-                        ...(isRight
-                            ? { rightFileStart: position, rightFileEnd: endPosition }
-                            : { leftFileStart: position, leftFileEnd: endPosition }),
-                    },
-                    token
-                );
-                vscode.window.showInformationMessage('Comment added to diff.');
-            } catch (e: any) {
-                vscode.window.showErrorMessage(`Failed to add comment: ${e.message}`);
-            }
-        }),
-    );
     createStatusBarItem(context);
 }
 

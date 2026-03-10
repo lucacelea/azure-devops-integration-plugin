@@ -311,13 +311,52 @@ export interface ThreadContext {
 export async function addPullRequestFileComment(
     org: string, project: string, repoId: string, prId: number,
     content: string, threadContext: ThreadContext, token: string
-): Promise<void> {
+): Promise<{ id: number; comments: Array<{ id: number }> }> {
     const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/pullRequests/${prId}/threads?api-version=7.1`;
-    await httpsRequest(url, 'POST', authHeaders(token), {
+    const response = await httpsRequest(url, 'POST', authHeaders(token), {
         comments: [{ parentCommentId: 0, content, commentType: 1 }],
         status: 1,
         threadContext,
     });
+    return JSON.parse(response);
+}
+
+export interface PrThread {
+    id: number;
+    status: string;
+    threadContext?: ThreadContext;
+    isDeleted: boolean;
+    comments: Array<{
+        id: number;
+        parentCommentId: number;
+        content: string;
+        author: { displayName: string; id: string };
+        publishedDate: string;
+        commentType: string;
+        isDeleted: boolean;
+    }>;
+}
+
+export async function getPrThreads(
+    org: string, project: string, repoId: string, prId: number, token: string
+): Promise<PrThread[]> {
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/pullRequests/${prId}/threads?api-version=7.1`;
+    const body = await httpsGet(url, authHeaders(token));
+    const data = JSON.parse(body);
+    return data.value as PrThread[];
+}
+
+export async function replyToThread(
+    org: string, project: string, repoId: string, prId: number,
+    threadId: number, content: string, token: string
+): Promise<{ id: number }> {
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/pullRequests/${prId}/threads/${threadId}/comments?api-version=7.1`;
+    const response = await httpsRequest(url, 'POST', authHeaders(token), {
+        parentCommentId: 0,
+        content,
+        commentType: 1,
+    });
+    return JSON.parse(response);
 }
 
 export async function getPullRequestDetails(
