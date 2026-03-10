@@ -44,24 +44,21 @@ async function editPullRequestDescription(template?: string): Promise<string | n
         content: template,
         language: 'markdown',
     });
-    const editor = await vscode.window.showTextDocument(doc);
+    await vscode.window.showTextDocument(doc);
 
-    const action = await vscode.window.showInformationMessage(
-        'Edit the PR description above, then click "Submit".',
-        'Submit',
-        'Skip'
+    vscode.window.showInformationMessage(
+        'Edit the PR description, then close the tab to submit. Clear all text to skip.'
     );
 
-    const result = action === 'Submit' ? doc.getText()
-        : action === 'Skip' ? ''
-        : null;
-
-    // Close the temporary editor tab
-    if (vscode.window.activeTextEditor === editor) {
-        await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
-    }
-
-    return result;
+    return new Promise<string | null>((resolve) => {
+        const disposable = vscode.workspace.onDidCloseTextDocument((closedDoc) => {
+            if (closedDoc === doc) {
+                disposable.dispose();
+                const text = closedDoc.getText().trim();
+                resolve(text || '');
+            }
+        });
+    });
 }
 
 export async function createPullRequest(secretStorage: vscode.SecretStorage): Promise<void> {
