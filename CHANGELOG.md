@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Add Comment on Line** command for posting inline comments on PR diffs from the editor
 
+### Fixed
+
+- Remote URLs with percent-encoded characters (e.g. spaces as `%20`) in the organization, project, or repository name were being double-encoded to `%2520` when constructing Azure DevOps URLs
+
 ### Changed
 
 - Left-clicking a PR in the sidebar now opens the PR changes view instead of the Azure DevOps URL
