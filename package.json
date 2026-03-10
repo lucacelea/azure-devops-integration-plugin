@@ -124,6 +124,11 @@
         "title": "Open Diff"
       },
       {
+        "command": "azureDevops.addDiffComment",
+        "title": "Azure DevOps: Add Comment on Line",
+        "icon": "$(comment)"
+      },
+      {
         "command": "azureDevops.filterPullRequests",
         "title": "Azure DevOps: Filter Pull Requests",
         "icon": "$(filter)"
@@ -157,6 +162,20 @@
       ]
     },
     "menus": {
+      "editor/title": [
+        {
+          "command": "azureDevops.addDiffComment",
+          "when": "resourceScheme == azuredevops-pr && resourceQuery =~ /prId=/",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "azureDevops.addDiffComment",
+          "when": "resourceScheme == azuredevops-pr && resourceQuery =~ /prId=/",
+          "group": "navigation"
+        }
+      ],
       "view/title": [
         {
           "command": "azureDevops.refreshPullRequests",
@@ -181,9 +200,9 @@
       ],
       "view/item/context": [
         {
-          "command": "azureDevops.reviewPrChanges",
+          "command": "azureDevops.openPrInBrowser",
           "when": "viewItem == pullRequest",
-          "group": "0_review@1"
+          "group": "0_open@1"
         },
         {
           "command": "azureDevops.approvePr",
@@ -229,11 +248,6 @@
           "command": "azureDevops.checkoutPrBranch",
           "when": "viewItem == pullRequest",
           "group": "3_branch@1"
-        },
-        {
-          "command": "azureDevops.openPrInBrowser",
-          "when": "viewItem == pullRequest",
-          "group": "4_open@1"
         }
       ]
     },
@@ -283,11 +297,19 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "lint": "eslint src --ext ts"
+    "lint": "eslint src",
+    "test": "jest"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.14",
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^8.57.0",
+    "@typescript-eslint/parser": "^8.57.0",
+    "eslint": "^10.0.3",
+    "jest": "^29.7.0",
+    "jest-util": "^29.7.0",
+    "ts-jest": "^29.4.6",
     "typescript": "^5.3.3"
   }
 }

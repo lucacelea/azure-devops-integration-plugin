@@ -61,9 +61,6 @@ export class PullRequestItem extends vscode.TreeItem {
         org: string
     ): PullRequestItem {
         const branch = pr.sourceRefName?.replace(/^refs\/heads\//, '') ?? '';
-        const repoName = pr.repository?.name ?? '';
-        const prProject = pr.repository?.project?.name ?? '';
-        const prUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(prProject)}/_git/${encodeURIComponent(repoName)}/pullrequest/${pr.pullRequestId}`;
 
         const reviewers = pr.reviewers ?? [];
         const hasRejection = reviewers.some((r) => r.vote === -10);
@@ -145,9 +142,9 @@ export class PullRequestItem extends vscode.TreeItem {
         item.iconPath = new vscode.ThemeIcon(iconId, iconColor);
         item.contextValue = 'pullRequest';
         item.command = {
-            command: 'vscode.open',
-            title: 'Open Pull Request',
-            arguments: [vscode.Uri.parse(prUrl)],
+            command: 'azureDevops.reviewPrChanges',
+            title: 'Review Changes',
+            arguments: [item],
         };
 
         item.pr = pr;

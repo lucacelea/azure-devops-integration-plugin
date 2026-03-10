@@ -4,6 +4,18 @@ All notable changes to the "Azure DevOps Integration" extension will be document
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.1] - 2026-03-10
+
+### Added
+
+- **Add Comment on Line** command for posting inline comments on PR diffs from the editor
+
+### Changed
+
+- Left-clicking a PR in the sidebar now opens the PR changes view instead of the Azure DevOps URL
+- "Open in Browser" moved to the first position in the right-click context menu, replacing "Review Changes"
+- "Add Comment" command renamed to "Azure DevOps: Add Comment" for consistency with other commands
+
 ## [0.2.0] - 2026-03-09
 
 ### Added
