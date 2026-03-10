@@ -1,9 +1,40 @@
 import * as vscode from 'vscode';
+import { readFile } from 'fs/promises';
+import * as path from 'path';
 import { getDevOpsConfig, getBaseUrl } from '../config';
 import { getCurrentBranch, getDefaultBranch } from '../git';
 import { getWorkItemId } from '../workItem';
 import { getToken } from '../auth';
 import { createPullRequestApi, getRepositoryId } from '../api';
+
+async function getPullRequestTemplate(): Promise<string | undefined> {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceFolder) {
+        return undefined;
+    }
+
+    const templatePaths = [
+        '.azuredevops/pull_request_template.md',
+        '.azuredevops/pull_request_template.txt',
+        '.github/pull_request_template.md',
+        '.github/PULL_REQUEST_TEMPLATE.md',
+        'pull_request_template.md',
+        'PULL_REQUEST_TEMPLATE.md',
+    ];
+
+    for (const templatePath of templatePaths) {
+        try {
+            const content = await readFile(path.join(workspaceFolder, templatePath), 'utf-8');
+            if (content.trim()) {
+                return content;
+            }
+        } catch {
+            // Try next candidate.
+        }
+    }
+
+    return undefined;
+}
 
 export async function createPullRequest(secretStorage: vscode.SecretStorage): Promise<void> {
     try {
@@ -66,6 +97,8 @@ export async function createPullRequest(secretStorage: vscode.SecretStorage): Pr
         );
         if (!isDraft) { return; }
 
+        const description = await getPullRequestTemplate();
+
         // Create via API
         await vscode.window.withProgress(
             { location: vscode.ProgressLocation.Notification, title: 'Creating pull request...' },
@@ -79,6 +112,7 @@ export async function createPullRequest(secretStorage: vscode.SecretStorage): Pr
                     sourceRefName: `refs/heads/${branch}`,
                     targetRefName: `refs/heads/${targetBranch}`,
                     title,
+                    description,
                     workItemIds: workItemId ? [parseInt(workItemId, 10)] : undefined,
                     isDraft: isDraft.value,
                     token,
