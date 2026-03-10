@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
-import { readFile } from 'fs/promises';
+import { readFile, writeFile, unlink } from 'fs/promises';
 import * as path from 'path';
+import * as os from 'os';
 import { getDevOpsConfig, getBaseUrl, getWorkItemProject } from '../config';
 import { getCurrentBranch, getDefaultBranch, getRepositoryRoot } from '../git';
 import { getWorkItemId } from '../workItem';
@@ -35,27 +36,44 @@ async function getPullRequestTemplate(): Promise<string | undefined> {
     return undefined;
 }
 
-async function editPullRequestDescription(template?: string): Promise<string | null> {
+async function editPullRequestDescription(template?: string): Promise<string> {
     if (!template) {
         return '';
     }
 
-    const doc = await vscode.workspace.openTextDocument({
-        content: template,
-        language: 'markdown',
-    });
+    const tmpPath = path.join(os.tmpdir(), `pr-description-${Date.now()}.md`);
+    await writeFile(tmpPath, template, 'utf-8');
+
+    const tmpUri = vscode.Uri.file(tmpPath);
+    const doc = await vscode.workspace.openTextDocument(tmpUri);
     await vscode.window.showTextDocument(doc);
 
     vscode.window.showInformationMessage(
         'Edit the PR description, then close the tab to submit. Clear all text to skip.'
     );
 
-    return new Promise<string | null>((resolve) => {
-        const disposable = vscode.workspace.onDidCloseTextDocument((closedDoc) => {
-            if (closedDoc === doc) {
-                disposable.dispose();
-                const text = closedDoc.getText().trim();
-                resolve(text || '');
+    let latestContent = template;
+
+    // Auto-save on changes so closing the tab never prompts to save
+    const changeDisposable = vscode.workspace.onDidChangeTextDocument((e) => {
+        if (e.document.uri.fsPath === tmpPath && e.contentChanges.length > 0) {
+            latestContent = e.document.getText();
+            e.document.save();
+        }
+    });
+
+    // Use tabGroups.onDidChangeTabs for reliable tab-close detection
+    // (onDidCloseTextDocument is not guaranteed to fire on tab close)
+    return new Promise<string>((resolve) => {
+        const tabDisposable = vscode.window.tabGroups.onDidChangeTabs(async (e) => {
+            for (const tab of e.closed) {
+                if (tab.input instanceof vscode.TabInputText && tab.input.uri.fsPath === tmpPath) {
+                    tabDisposable.dispose();
+                    changeDisposable.dispose();
+                    resolve(latestContent.trim() || '');
+                    await unlink(tmpPath).catch(() => {});
+                    return;
+                }
             }
         });
     });
@@ -130,15 +148,14 @@ export async function createPullRequest(secretStorage: vscode.SecretStorage): Pr
 
         const template = await getPullRequestTemplate();
         const description = await editPullRequestDescription(template);
-        if (description === null) { return; }
 
         // Create via API
-        await vscode.window.withProgress(
+        const pr = await vscode.window.withProgress(
             { location: vscode.ProgressLocation.Notification, title: 'Creating pull request...' },
             async () => {
                 const repoId = await getRepositoryId(config.organization, config.project, config.repository, token);
 
-                const pr = await createPullRequestApi({
+                const result = await createPullRequestApi({
                     org: config.organization,
                     project: config.project,
                     repoId,
@@ -168,16 +185,18 @@ export async function createPullRequest(secretStorage: vscode.SecretStorage): Pr
                     }
                 }
 
-                const prUrl = `${getBaseUrl(config)}/pullrequest/${pr.pullRequestId}`;
-                const action = await vscode.window.showInformationMessage(
-                    `PR #${pr.pullRequestId} created.`,
-                    'Open in Browser'
-                );
-                if (action === 'Open in Browser') {
-                    await vscode.env.openExternal(vscode.Uri.parse(prUrl));
-                }
+                return result;
             }
         );
+
+        const prUrl = `${getBaseUrl(config)}/pullrequest/${pr.pullRequestId}`;
+        const action = await vscode.window.showInformationMessage(
+            `PR #${pr.pullRequestId} created.`,
+            'Open in Browser'
+        );
+        if (action === 'Open in Browser') {
+            await vscode.env.openExternal(vscode.Uri.parse(prUrl));
+        }
     } catch (error) {
         vscode.window.showErrorMessage(`Failed to create pull request: ${error instanceof Error ? error.message : error}`);
     }
