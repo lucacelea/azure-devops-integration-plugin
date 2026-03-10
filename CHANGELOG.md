@@ -10,10 +10,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Add Comment on Line** command for posting inline comments on PR diffs from the editor
 - **Configurable linked work item state on PR creation**: new setting `azureDevops.pullRequestLinkedWorkItemState` lets you specify a state (e.g. `To verify`) to automatically apply to the linked work item when creating a pull request. Leave empty to disable the transition.
+- **Pull request template support**: automatically detects PR templates (`.azuredevops/pull_request_template.md` and common variants) and opens them in an editor tab when creating a PR. Edit the description and close the tab to submit, or clear all text to skip — no save prompts, similar to git commit messages.
 
 ### Fixed
 
 - Remote URLs with percent-encoded characters (e.g. spaces as `%20`) in the organization, project, or repository name were being double-encoded to `%2520` when constructing Azure DevOps URLs
+- Fixed work item state update failing with HTTP 400 after PR creation due to incorrect `Content-Type` header (`application/json` instead of `application/json-patch+json`)
+- "Creating pull request..." progress notification no longer stays busy after the PR is created
 
 ### Changed
 

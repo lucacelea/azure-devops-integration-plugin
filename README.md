@@ -40,7 +40,7 @@ Open the Command Palette (`Cmd+Shift+P`) and type "Azure DevOps" to access:
 
 | Command | Description |
 |---------|-------------|
-| **Azure DevOps: Create Pull Request** | Opens the PR creation page with the current branch pre-filled. Automatically links detected work items. |
+| **Azure DevOps: Create Pull Request** | Creates a PR from the current branch. Automatically links detected work items and applies a repository PR template when available. |
 | **Azure DevOps: Open Repository** | Opens the repository in Azure DevOps. |
 | **Azure DevOps: Open Work Item** | Opens a work item by ID. Pre-fills the detected ID from the current branch. |
 | **Azure DevOps: Set Personal Access Token** | Configure your PAT for API access. |

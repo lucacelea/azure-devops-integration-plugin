@@ -50,8 +50,8 @@ function httpsRequest(url: string, method: string, headers: Record<string, strin
             path: urlObj.pathname + urlObj.search,
             method,
             headers: {
+                ...(body ? { 'Content-Type': 'application/json' } : {}),
                 ...headers,
-                ...(body && !headers['Content-Type'] ? { 'Content-Type': 'application/json' } : {}),
             },
         };
         const req = https.request(options, (res) => {
