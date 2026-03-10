@@ -126,8 +126,10 @@ export class PrCommentController implements vscode.Disposable {
 
         const filePath = ctx.filePath;
         const isRight = !!ctx.rightFileStart;
-        const pos = ctx.rightFileStart ?? ctx.leftFileStart;
-        const line = pos ? pos.line - 1 : 0;
+        const startPos = isRight ? ctx.rightFileStart : ctx.leftFileStart;
+        const endPos = isRight ? ctx.rightFileEnd : ctx.leftFileEnd;
+        const startLine = startPos ? startPos.line - 1 : 0;
+        const endLine = endPos ? endPos.line - 1 : startLine;
         const side = isRight ? 'right' : 'left';
 
         const matchingDoc = vscode.workspace.textDocuments.find((doc) => {
@@ -139,11 +141,11 @@ export class PrCommentController implements vscode.Disposable {
         if (!matchingDoc) { return undefined; }
 
         const meta = { org, project, repoId, prId, threadId: thread.id };
-        return this.createVsThread(matchingDoc.uri, line, thread, userComments, meta);
+        return this.createVsThread(matchingDoc.uri, startLine, endLine, thread, userComments, meta);
     }
 
     private createVsThread(
-        uri: vscode.Uri, line: number, thread: PrThread,
+        uri: vscode.Uri, startLine: number, endLine: number, thread: PrThread,
         userComments: PrThread['comments'], meta: ThreadMeta
     ): vscode.CommentThread {
         const comments: vscode.Comment[] = userComments.map((c) => ({
@@ -153,7 +155,7 @@ export class PrCommentController implements vscode.Disposable {
             timestamp: new Date(c.publishedDate),
         }));
 
-        const range = new vscode.Range(line, 0, line, 0);
+        const range = new vscode.Range(startLine, 0, endLine, 0);
         const vsThread = this.controller.createCommentThread(uri, range, comments);
         vsThread.canReply = true;
         vsThread.label = thread.status === 'active' ? 'Active' : thread.status;
@@ -173,9 +175,12 @@ export class PrCommentController implements vscode.Disposable {
             return;
         }
 
-        const line = (reply.thread.range?.start.line ?? 0) + 1;
+        const range = reply.thread.range;
+        const startLine = (range?.start.line ?? 0) + 1;
+        const endLine = (range?.end.line ?? range?.start.line ?? 0) + 1;
         const isRight = ctx.side !== 'left';
-        const position = { line, offset: 1 };
+        const startPosition = { line: startLine, offset: 1 };
+        const endPosition = { line: endLine, offset: 1 };
 
         try {
             const result = await addPullRequestFileComment(
@@ -184,8 +189,8 @@ export class PrCommentController implements vscode.Disposable {
                 {
                     filePath: ctx.filePath,
                     ...(isRight
-                        ? { rightFileStart: position, rightFileEnd: position }
-                        : { leftFileStart: position, leftFileEnd: position }),
+                        ? { rightFileStart: startPosition, rightFileEnd: endPosition }
+                        : { leftFileStart: startPosition, leftFileEnd: endPosition }),
                 },
                 token
             );
