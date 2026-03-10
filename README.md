@@ -84,6 +84,7 @@ All settings are optional — the extension auto-detects values from your git re
 | `azureDevops.workItemProject` | Same as project | Project for work items, if different from the repo's project |
 | `azureDevops.branchPrefix` | `""` | Personal branch prefix to strip (e.g., `lucac/`) |
 | `azureDevops.workItemPattern` | Built-in patterns | Custom regex to extract work item ID from branch name |
+| `azureDevops.pullRequestLinkedWorkItemState` | `""` | Optional state to set on linked work item when creating a PR (leave empty to disable) |
 | `azureDevops.pullRequestRefreshInterval` | `300` | Auto-refresh interval in seconds (minimum 30) |
 
 ## Requirements
