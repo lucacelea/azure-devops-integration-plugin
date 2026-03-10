@@ -4,6 +4,12 @@ All notable changes to the "Azure DevOps Integration" extension will be document
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.2] - 2026-03-10
+
+### Added
+
+- **Full comment support**
+
 ## [0.2.1] - 2026-03-10
 
 ### Added

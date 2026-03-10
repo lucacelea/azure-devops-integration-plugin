@@ -2,7 +2,7 @@
   "name": "azure-devops-integration",
   "displayName": "Azure DevOps Integration",
   "description": "A VS Code extension for Azure DevOps. Browse pull requests in a sidebar grouped by Created by me, Assigned to me, and My teams, with review, check, and comment status. Auto-detects config from git remotes and extracts work item IDs from branch names. Create PRs, open repos, and link work items.",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "publisher": "lucacelea",
   "license": "MIT",
   "icon": "icon.png",
@@ -124,11 +124,6 @@
         "title": "Open Diff"
       },
       {
-        "command": "azureDevops.addDiffComment",
-        "title": "Azure DevOps: Add Comment on Line",
-        "icon": "$(comment)"
-      },
-      {
         "command": "azureDevops.filterPullRequests",
         "title": "Azure DevOps: Filter Pull Requests",
         "icon": "$(filter)"
@@ -137,6 +132,35 @@
         "command": "azureDevops.sortPullRequests",
         "title": "Azure DevOps: Sort Pull Requests",
         "icon": "$(arrow-swap)"
+      },
+      {
+        "command": "azureDevops.replyToComment",
+        "title": "Submit Comment",
+        "icon": "$(check)"
+      },
+      {
+        "command": "azureDevops.openDiscussionComment",
+        "title": "Open Comment"
+      },
+      {
+        "command": "azureDevops.refreshPrDiscussion",
+        "title": "Refresh Discussion",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "azureDevops.clearPrDiscussion",
+        "title": "Clear Discussion",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "azureDevops.replyToDiscussionThread",
+        "title": "Reply",
+        "icon": "$(comment)"
+      },
+      {
+        "command": "azureDevops.addGeneralComment",
+        "title": "Add Comment",
+        "icon": "$(add)"
       }
     ],
     "viewsContainers": {
@@ -158,22 +182,20 @@
           "id": "azureDevops.prChanges",
           "name": "PR Changes",
           "visibility": "collapsed"
+        },
+        {
+          "id": "azureDevops.prDiscussion",
+          "name": "PR Discussion",
+          "visibility": "collapsed"
         }
       ]
     },
     "menus": {
-      "editor/title": [
+      "comments/commentThread/context": [
         {
-          "command": "azureDevops.addDiffComment",
-          "when": "resourceScheme == azuredevops-pr && resourceQuery =~ /prId=/",
-          "group": "navigation"
-        }
-      ],
-      "editor/context": [
-        {
-          "command": "azureDevops.addDiffComment",
-          "when": "resourceScheme == azuredevops-pr && resourceQuery =~ /prId=/",
-          "group": "navigation"
+          "command": "azureDevops.replyToComment",
+          "group": "inline",
+          "when": "commentController == azureDevopsPrComments"
         }
       ],
       "view/title": [
@@ -195,6 +217,21 @@
         {
           "command": "azureDevops.clearPrChanges",
           "when": "view == azureDevops.prChanges",
+          "group": "navigation"
+        },
+        {
+          "command": "azureDevops.refreshPrDiscussion",
+          "when": "view == azureDevops.prDiscussion",
+          "group": "navigation"
+        },
+        {
+          "command": "azureDevops.clearPrDiscussion",
+          "when": "view == azureDevops.prDiscussion",
+          "group": "navigation"
+        },
+        {
+          "command": "azureDevops.addGeneralComment",
+          "when": "view == azureDevops.prDiscussion",
           "group": "navigation"
         }
       ],
@@ -248,6 +285,11 @@
           "command": "azureDevops.checkoutPrBranch",
           "when": "viewItem == pullRequest",
           "group": "3_branch@1"
+        },
+        {
+          "command": "azureDevops.replyToDiscussionThread",
+          "when": "viewItem == discussionThread",
+          "group": "inline"
         }
       ]
     },
