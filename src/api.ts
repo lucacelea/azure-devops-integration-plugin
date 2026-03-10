@@ -295,6 +295,31 @@ export async function addPullRequestComment(
     });
 }
 
+export interface ThreadPosition {
+    line: number;
+    offset: number;
+}
+
+export interface ThreadContext {
+    filePath: string;
+    rightFileStart?: ThreadPosition;
+    rightFileEnd?: ThreadPosition;
+    leftFileStart?: ThreadPosition;
+    leftFileEnd?: ThreadPosition;
+}
+
+export async function addPullRequestFileComment(
+    org: string, project: string, repoId: string, prId: number,
+    content: string, threadContext: ThreadContext, token: string
+): Promise<void> {
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/pullRequests/${prId}/threads?api-version=7.1`;
+    await httpsRequest(url, 'POST', authHeaders(token), {
+        comments: [{ parentCommentId: 0, content, commentType: 1 }],
+        status: 1,
+        threadContext,
+    });
+}
+
 export async function getPullRequestDetails(
     org: string, project: string, repoId: string, prId: number, token: string
 ): Promise<any> {

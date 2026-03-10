@@ -2,13 +2,14 @@ import * as vscode from 'vscode';
 import { createPullRequest } from './commands/createPr';
 import { openRepository } from './commands/openRepo';
 import { openWorkItem } from './commands/openWorkItem';
-import { setToken, removeToken } from './auth';
+import { setToken, removeToken, getToken } from './auth';
 import { createStatusBarItem } from './statusBar';
 import { registerPrSidebar, PrFilter, PrSort } from './prSidebar';
 import { registerPrActions } from './commands/prActions';
 import { checkoutPrBranch } from './commands/checkoutBranch';
 import { PrChangesProvider, PrFileItem } from './prChangesProvider';
-import { PrContentProvider, buildPrFileUri } from './prContentProvider';
+import { PrContentProvider, buildPrFileUri, parsePrFileUri } from './prContentProvider';
+import { addPullRequestFileComment } from './api';
 
 export function activate(context: vscode.ExtensionContext) {
     const secretStorage = context.secrets;
@@ -100,23 +101,74 @@ export function activate(context: vscode.ExtensionContext) {
             const filePath = change.item.path;
 
             if (change.changeType === 'add') {
-                const rightUri = buildPrFileUri(fileItem.org, fileItem.project, fileItem.repoId, fileItem.sourceCommitId, filePath);
+                const rightUri = buildPrFileUri(fileItem.org, fileItem.project, fileItem.repoId, fileItem.sourceCommitId, filePath, fileItem.prId, 'right');
                 const leftUri = vscode.Uri.parse('azuredevops-pr://empty');
                 await vscode.commands.executeCommand('vscode.diff', leftUri, rightUri, `${filePath} (added)`);
             } else if (change.changeType === 'delete') {
-                const leftUri = buildPrFileUri(fileItem.org, fileItem.project, fileItem.repoId, fileItem.targetCommitId, filePath);
+                const leftUri = buildPrFileUri(fileItem.org, fileItem.project, fileItem.repoId, fileItem.targetCommitId, filePath, fileItem.prId, 'left');
                 const rightUri = vscode.Uri.parse('azuredevops-pr://empty');
                 await vscode.commands.executeCommand('vscode.diff', leftUri, rightUri, `${filePath} (deleted)`);
             } else {
                 const originalPath = change.originalPath ?? filePath;
-                const leftUri = buildPrFileUri(fileItem.org, fileItem.project, fileItem.repoId, fileItem.targetCommitId, originalPath);
-                const rightUri = buildPrFileUri(fileItem.org, fileItem.project, fileItem.repoId, fileItem.sourceCommitId, filePath);
+                const leftUri = buildPrFileUri(fileItem.org, fileItem.project, fileItem.repoId, fileItem.targetCommitId, originalPath, fileItem.prId, 'left');
+                const rightUri = buildPrFileUri(fileItem.org, fileItem.project, fileItem.repoId, fileItem.sourceCommitId, filePath, fileItem.prId, 'right');
                 await vscode.commands.executeCommand('vscode.diff', leftUri, rightUri, `${filePath}`);
             }
         }),
     );
 
-    // Create status bar item for work item ID
+    // Add comment from diff view
+    context.subscriptions.push(
+        vscode.commands.registerCommand('azureDevops.addDiffComment', async () => {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor) { return; }
+
+            const uri = editor.document.uri;
+            const prContext = parsePrFileUri(uri);
+            if (!prContext || prContext.prId === undefined) {
+                vscode.window.showErrorMessage('This file is not part of a PR diff.');
+                return;
+            }
+
+            const token = await getToken(secretStorage);
+            if (!token) {
+                vscode.window.showErrorMessage('No PAT configured.');
+                return;
+            }
+
+            const selection = editor.selection;
+            const startLine = selection.start.line + 1; // VS Code is 0-based, API is 1-based
+            const endLine = selection.end.line + 1;
+            const lineLabel = startLine === endLine ? `line ${startLine}` : `lines ${startLine}-${endLine}`;
+
+            const comment = await vscode.window.showInputBox({
+                prompt: `Add comment on ${prContext.filePath} (${lineLabel})`,
+                placeHolder: 'Type your comment...',
+            });
+            if (!comment) { return; }
+
+            const position = { line: startLine, offset: 1 };
+            const endPosition = { line: endLine, offset: 1 };
+            const isRight = prContext.side !== 'left';
+
+            try {
+                await addPullRequestFileComment(
+                    prContext.org, prContext.project, prContext.repoId, prContext.prId,
+                    comment,
+                    {
+                        filePath: prContext.filePath,
+                        ...(isRight
+                            ? { rightFileStart: position, rightFileEnd: endPosition }
+                            : { leftFileStart: position, leftFileEnd: endPosition }),
+                    },
+                    token
+                );
+                vscode.window.showInformationMessage('Comment added to diff.');
+            } catch (e: any) {
+                vscode.window.showErrorMessage(`Failed to add comment: ${e.message}`);
+            }
+        }),
+    );
     createStatusBarItem(context);
 }
 

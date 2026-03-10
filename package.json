@@ -123,6 +123,11 @@
         "title": "Open Diff"
       },
       {
+        "command": "azureDevops.addDiffComment",
+        "title": "Azure DevOps: Add Comment on Line",
+        "icon": "$(comment)"
+      },
+      {
         "command": "azureDevops.filterPullRequests",
         "title": "Azure DevOps: Filter Pull Requests",
         "icon": "$(filter)"
@@ -156,6 +161,20 @@
       ]
     },
     "menus": {
+      "editor/title": [
+        {
+          "command": "azureDevops.addDiffComment",
+          "when": "resourceScheme == azuredevops-pr && resourceQuery =~ /prId=/",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "azureDevops.addDiffComment",
+          "when": "resourceScheme == azuredevops-pr && resourceQuery =~ /prId=/",
+          "group": "navigation"
+        }
+      ],
       "view/title": [
         {
           "command": "azureDevops.refreshPullRequests",
