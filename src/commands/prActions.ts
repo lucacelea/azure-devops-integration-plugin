@@ -10,6 +10,10 @@ import {
 import { getToken } from '../auth';
 
 async function getContext(item: PullRequestItem, provider: PullRequestTreeProvider) {
+    if (!item) {
+        vscode.window.showErrorMessage('This command must be run from a pull request in the sidebar.');
+        return undefined;
+    }
     const pr = item.pr;
     const org = item.org;
     if (!pr || !org) {

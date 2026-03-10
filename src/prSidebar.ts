@@ -145,9 +145,9 @@ export class PullRequestItem extends vscode.TreeItem {
         item.iconPath = new vscode.ThemeIcon(iconId, iconColor);
         item.contextValue = 'pullRequest';
         item.command = {
-            command: 'vscode.open',
-            title: 'Open Pull Request',
-            arguments: [vscode.Uri.parse(prUrl)],
+            command: 'azureDevops.reviewPrChanges',
+            title: 'Review Changes',
+            arguments: [item],
         };
 
         item.pr = pr;
