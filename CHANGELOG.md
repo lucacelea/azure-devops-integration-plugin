@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Background notifications for new PR comments**: automatically notifies when new unresolved comments appear on your pull requests, even when the sidebar panel is closed or VS Code is minimized. Tracks unresolved comment counts across polling cycles and shows native notifications when counts increase.
   - Single PR: "New unresolved comments on PR #42: Fix auth flow"
   - Multiple PRs: "New unresolved comments on 3 pull requests"
+- **Full comment viewing for general PR comments**: clicking a general PR comment (or any reply) in the Discussion tree now opens the full thread as a read-only markdown document in the editor. Previously, long comments were truncated with ellipsis in the tree view with no way to view the complete text.
 
 ### Changed
 
