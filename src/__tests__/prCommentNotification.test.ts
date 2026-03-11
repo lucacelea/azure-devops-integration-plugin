@@ -15,6 +15,7 @@ function makePr(id: number, title: string, unresolvedCommentCount: number): Enri
         url: '',
         unresolvedCommentCount,
         checksStatus: 'none',
+        checks: [],
     };
 }
 

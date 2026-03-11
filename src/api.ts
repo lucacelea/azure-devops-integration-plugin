@@ -10,11 +10,19 @@ export interface PullRequest {
     status: string;
     isDraft: boolean;
     url: string;
+    mergeStatus?: string;
+}
+
+export interface PolicyCheck {
+    name: string;
+    status: 'approved' | 'rejected' | 'running' | 'queued' | 'broken' | 'notApplicable';
+    isBlocking: boolean;
 }
 
 export interface EnrichedPullRequest extends PullRequest {
     unresolvedCommentCount: number;
     checksStatus: 'passed' | 'failed' | 'running' | 'none';
+    checks: PolicyCheck[];
 }
 
 export interface PrChange {
@@ -148,37 +156,253 @@ async function getUnresolvedCommentCount(
     }
 }
 
-async function getChecksStatus(
+// Well-known Azure DevOps policy type IDs that should not appear as
+// checks in the tree.
+const EXCLUDED_POLICY_TYPE_IDS = new Set([
+    'fa4e907d-c16b-4a4c-9dfa-4916e5d171ab', // Minimum number of reviewers
+]);
+
+// Required Reviewers policy type ID — used to resolve reviewer names
+const REQUIRED_REVIEWERS_TYPE_ID = 'fd2167ab-b0be-447a-8571-0615d2f67893';
+
+function normalizeGuid(id: string): string {
+    return id.replace(/[{}]/g, '').toLowerCase();
+}
+
+function computeChecksStatus(checks: PolicyCheck[]): EnrichedPullRequest['checksStatus'] {
+    const blocking = checks.filter((c) => c.isBlocking);
+    if (blocking.length === 0) {
+        return 'none';
+    } else if (blocking.some((c) => c.status === 'rejected' || c.status === 'broken')) {
+        return 'failed';
+    } else if (blocking.some((c) => c.status === 'running' || c.status === 'queued')) {
+        return 'running';
+    }
+    return 'passed';
+}
+
+async function resolveIdentityNames(
+    org: string,
+    identityIds: string[],
+    token: string
+): Promise<Map<string, string>> {
+    const nameMap = new Map<string, string>();
+    if (identityIds.length === 0) { return nameMap; }
+
+    const normalizedIds = identityIds.map(normalizeGuid);
+    const unresolvedIds = () => normalizedIds.filter((id) => !nameMap.has(id));
+
+    // Strategy 1: VSSPS Identities API batch lookup.
+    // GUIDs only contain hex chars and hyphens — no URL encoding needed.
+    // Encoding the comma separator (%2C) breaks the Azure DevOps API.
+    try {
+        const idsParam = normalizedIds.join(',');
+        const url =
+            `https://vssps.dev.azure.com/${encodeURIComponent(org)}` +
+            `/_apis/identities?identityIds=${idsParam}&queryMembership=None&api-version=7.1-preview.1`;
+        const body = await httpsGet(url, authHeaders(token));
+        const data = JSON.parse(body);
+        for (const identity of data.value ?? []) {
+            const displayName = identity.providerDisplayName
+                || identity.customDisplayName
+                || identity.displayName;
+            const id = identity.id;
+            if (id && displayName) {
+                nameMap.set(normalizeGuid(id), displayName);
+            }
+        }
+    } catch {
+        // Batch lookup failed — continue to next strategy
+    }
+
+    // Strategy 2: Individual VSSPS Identities lookups for any IDs the
+    // batch did not resolve (including when it returned HTTP 200 but with
+    // no matching identities).
+    for (const id of unresolvedIds()) {
+        try {
+            const url =
+                `https://vssps.dev.azure.com/${encodeURIComponent(org)}` +
+                `/_apis/identities?identityIds=${id}&queryMembership=None&api-version=7.1-preview.1`;
+            const body = await httpsGet(url, authHeaders(token));
+            const data = JSON.parse(body);
+            const identity = data.value?.[0];
+            if (identity) {
+                const displayName = identity.providerDisplayName
+                    || identity.customDisplayName
+                    || identity.displayName;
+                if (displayName) {
+                    nameMap.set(id, displayName);
+                }
+            }
+        } catch {
+            // Individual lookup failed — skip this ID
+        }
+    }
+
+    // Strategy 3: Graph descriptor → subject lookup.  The
+    // requiredReviewerIds may be "storage keys" that the Identities API
+    // does not recognize.  The Graph Descriptors API can convert a storage
+    // key into a subject descriptor, and the Subject Lookup API can then
+    // return the display name.
+    const remaining = unresolvedIds();
+    if (remaining.length > 0) {
+        const idToDescriptor = new Map<string, string>();
+        for (const id of remaining) {
+            try {
+                const url =
+                    `https://vssps.dev.azure.com/${encodeURIComponent(org)}` +
+                    `/_apis/graph/descriptors/${id}?api-version=7.1-preview.1`;
+                const body = await httpsGet(url, authHeaders(token));
+                const data = JSON.parse(body);
+                if (data.value) {
+                    idToDescriptor.set(id, data.value);
+                }
+            } catch {
+                // Descriptor lookup failed — skip
+            }
+        }
+
+        if (idToDescriptor.size > 0) {
+            const descriptorToId = new Map<string, string>();
+            for (const [id, desc] of idToDescriptor) {
+                descriptorToId.set(desc, id);
+            }
+            try {
+                const url =
+                    `https://vssps.dev.azure.com/${encodeURIComponent(org)}` +
+                    `/_apis/graph/subjectlookup?api-version=7.1-preview.1`;
+                const body = await httpsRequest(url, 'POST', {
+                    ...authHeaders(token),
+                    'Content-Type': 'application/json',
+                }, {
+                    lookupKeys: [...idToDescriptor.values()].map((d) => ({ descriptor: d })),
+                });
+                const data = JSON.parse(body);
+                for (const [descriptor, subject] of Object.entries(data.value ?? {})) {
+                    const s = subject as { displayName?: string };
+                    const originalId = descriptorToId.get(descriptor);
+                    if (s.displayName && originalId) {
+                        nameMap.set(originalId, s.displayName);
+                    }
+                }
+            } catch {
+                // Subject lookup failed — skip
+            }
+        }
+    }
+
+    return nameMap;
+}
+
+async function getChecks(
     org: string,
     project: string,
     projectId: string,
     prId: number,
-    token: string
-): Promise<EnrichedPullRequest['checksStatus']> {
+    token: string,
+    reviewers: Array<{ displayName: string; id: string }>
+): Promise<{ checksStatus: EnrichedPullRequest['checksStatus']; checks: PolicyCheck[] }> {
     const artifactId = `vstfs:///CodeReview/CodeReviewId/${projectId}/${prId}`;
     const url =
         `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}` +
-        `/_apis/policy/evaluations?artifactId=${encodeURIComponent(artifactId)}&api-version=7.1`;
+        `/_apis/policy/evaluations?artifactId=${encodeURIComponent(artifactId)}&api-version=7.1-preview.1`;
     try {
         const body = await httpsGet(url, authHeaders(token));
         const data = JSON.parse(body);
         const evaluations = data.value as Array<{
             status: string;
-            configuration: { isBlocking: boolean };
+            configuration: {
+                isBlocking: boolean;
+                isEnabled: boolean;
+                isDeleted?: boolean;
+                type?: { id?: string; displayName?: string };
+                settings?: { displayName?: string; statusName?: string; requiredReviewerIds?: string[] };
+            };
+            context?: {
+                isExpired?: boolean;
+                buildId?: number;
+            };
         }>;
-        const blocking = evaluations.filter((e) => e.configuration.isBlocking);
-        if (blocking.length === 0) {
-            return 'none';
+
+        const validStatuses = ['approved', 'rejected', 'running', 'queued', 'broken', 'notApplicable'];
+
+        // Build a name map from PR reviewers (primary source — zero extra
+        // API calls, and Azure DevOps auto-adds required reviewers to PRs).
+        const reviewerNamesById = new Map<string, string>();
+        for (const r of reviewers) {
+            if (r.id && r.displayName) {
+                reviewerNamesById.set(normalizeGuid(r.id), r.displayName);
+            }
         }
-        if (blocking.some((e) => e.status === 'rejected' || e.status === 'broken')) {
-            return 'failed';
+
+        // Collect any requiredReviewerIds that weren't resolved from the
+        // PR's reviewers list, then try the Identities API as a fallback.
+        const unresolvedIds: string[] = [];
+        for (const e of evaluations) {
+            const typeId = normalizeGuid(e.configuration.type?.id ?? '');
+            if (typeId === REQUIRED_REVIEWERS_TYPE_ID) {
+                for (const id of e.configuration.settings?.requiredReviewerIds ?? []) {
+                    if (!reviewerNamesById.has(normalizeGuid(id))) {
+                        unresolvedIds.push(id);
+                    }
+                }
+            }
         }
-        if (blocking.some((e) => e.status === 'running' || e.status === 'queued')) {
-            return 'running';
+        if (unresolvedIds.length > 0) {
+            const identityNames = await resolveIdentityNames(org, unresolvedIds, token);
+            for (const [id, name] of identityNames) {
+                reviewerNamesById.set(id, name);
+            }
         }
-        return 'passed';
+
+        const checks: PolicyCheck[] = evaluations
+            .filter((e) =>
+                e.configuration.isEnabled &&
+                !e.configuration.isDeleted &&
+                !EXCLUDED_POLICY_TYPE_IDS.has(normalizeGuid(e.configuration.type?.id ?? '')))
+            .map((e) => {
+            let status: PolicyCheck['status'];
+            if (validStatuses.includes(e.status)) {
+                status = e.status as PolicyCheck['status'];
+            } else {
+                status = 'notApplicable';
+            }
+
+            // Build policies may report "running" even after the build
+            // has finished when the evaluation itself is expired/stale.
+            if (status === 'running' && e.context?.isExpired) {
+                status = 'broken';
+            }
+
+            // For Required Reviewers policies, resolve the actual
+            // reviewer/team name via the Identities API.
+            let name = e.configuration.settings?.displayName
+                || e.configuration.settings?.statusName
+                || e.configuration.type?.displayName
+                || 'Policy check';
+
+            const typeId = normalizeGuid(e.configuration.type?.id ?? '');
+            if (typeId === REQUIRED_REVIEWERS_TYPE_ID && e.configuration.settings?.requiredReviewerIds?.length) {
+                const resolvedNames = e.configuration.settings.requiredReviewerIds
+                    .map((id) => reviewerNamesById.get(normalizeGuid(id)))
+                    .filter((n): n is string => !!n);
+                if (resolvedNames.length > 0) {
+                    name = resolvedNames.join(', ');
+                }
+            }
+
+            return {
+                name,
+                status,
+                isBlocking: e.configuration.isBlocking,
+            };
+        });
+
+        const checksStatus = computeChecksStatus(checks);
+
+        return { checksStatus, checks };
     } catch {
-        return 'none';
+        return { checksStatus: 'none', checks: [] };
     }
 }
 
@@ -193,16 +417,32 @@ async function enrichPullRequests(
             const projectId = pr.repository?.project?.id ?? '';
             const repoId = pr.repository?.id ?? '';
 
-            const [unresolvedCommentCount, checksStatus] = await Promise.all([
+            const [unresolvedCommentCount, checksResult] = await Promise.all([
                 project && repoId
                     ? getUnresolvedCommentCount(org, project, repoId, pr.pullRequestId, token)
                     : Promise.resolve(0),
                 project && projectId
-                    ? getChecksStatus(org, project, projectId, pr.pullRequestId, token)
-                    : Promise.resolve('none' as const),
+                    ? getChecks(org, project, projectId, pr.pullRequestId, token, pr.reviewers ?? [])
+                    : Promise.resolve({ checksStatus: 'none' as const, checks: [] as PolicyCheck[] }),
             ]);
 
-            return { ...pr, unresolvedCommentCount, checksStatus };
+            const checks = [...checksResult.checks];
+
+            // Add a synthetic check for merge conflicts based on the PR's
+            // mergeStatus field (this isn't a policy evaluation, but it's
+            // very useful to surface at a glance).
+            if (pr.mergeStatus === 'conflicts') {
+                checks.push({
+                    name: 'Merge Conflicts',
+                    status: 'rejected',
+                    isBlocking: true,
+                });
+            }
+
+            // Recalculate checksStatus including the synthetic check
+            const checksStatus = computeChecksStatus(checks);
+
+            return { ...pr, unresolvedCommentCount, checksStatus, checks };
         })
     );
 }
