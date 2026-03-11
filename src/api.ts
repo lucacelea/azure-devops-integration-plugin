@@ -189,14 +189,17 @@ async function resolveIdentityNames(
     const nameMap = new Map<string, string>();
     if (identityIds.length === 0) { return nameMap; }
 
-    // Try batch lookup — GUIDs only contain hex chars and hyphens so they
-    // don't need URL encoding.  Encoding the comma separator (%2C) breaks
-    // the Azure DevOps API which expects literal commas.
+    const normalizedIds = identityIds.map(normalizeGuid);
+    const unresolvedIds = () => normalizedIds.filter((id) => !nameMap.has(id));
+
+    // Strategy 1: VSSPS Identities API batch lookup.
+    // GUIDs only contain hex chars and hyphens — no URL encoding needed.
+    // Encoding the comma separator (%2C) breaks the Azure DevOps API.
     try {
-        const idsParam = identityIds.map(normalizeGuid).join(',');
+        const idsParam = normalizedIds.join(',');
         const url =
             `https://vssps.dev.azure.com/${encodeURIComponent(org)}` +
-            `/_apis/identities?identityIds=${idsParam}&api-version=6.0`;
+            `/_apis/identities?identityIds=${idsParam}&queryMembership=None&api-version=7.1-preview.1`;
         const body = await httpsGet(url, authHeaders(token));
         const data = JSON.parse(body);
         for (const identity of data.value ?? []) {
@@ -209,29 +212,85 @@ async function resolveIdentityNames(
             }
         }
     } catch {
-        // Batch lookup failed — try individual lookups as fallback
-        for (const rawId of identityIds) {
+        // Batch lookup failed — continue to next strategy
+    }
+
+    // Strategy 2: Individual VSSPS Identities lookups for any IDs the
+    // batch did not resolve (including when it returned HTTP 200 but with
+    // no matching identities).
+    for (const id of unresolvedIds()) {
+        try {
+            const url =
+                `https://vssps.dev.azure.com/${encodeURIComponent(org)}` +
+                `/_apis/identities?identityIds=${id}&queryMembership=None&api-version=7.1-preview.1`;
+            const body = await httpsGet(url, authHeaders(token));
+            const data = JSON.parse(body);
+            const identity = data.value?.[0];
+            if (identity) {
+                const displayName = identity.providerDisplayName
+                    || identity.customDisplayName
+                    || identity.displayName;
+                if (displayName) {
+                    nameMap.set(id, displayName);
+                }
+            }
+        } catch {
+            // Individual lookup failed — skip this ID
+        }
+    }
+
+    // Strategy 3: Graph descriptor → subject lookup.  The
+    // requiredReviewerIds may be "storage keys" that the Identities API
+    // does not recognize.  The Graph Descriptors API can convert a storage
+    // key into a subject descriptor, and the Subject Lookup API can then
+    // return the display name.
+    const remaining = unresolvedIds();
+    if (remaining.length > 0) {
+        const idToDescriptor = new Map<string, string>();
+        for (const id of remaining) {
             try {
-                const id = normalizeGuid(rawId);
                 const url =
                     `https://vssps.dev.azure.com/${encodeURIComponent(org)}` +
-                    `/_apis/identities?identityIds=${id}&api-version=6.0`;
+                    `/_apis/graph/descriptors/${id}?api-version=7.1-preview.1`;
                 const body = await httpsGet(url, authHeaders(token));
                 const data = JSON.parse(body);
-                const identity = data.value?.[0];
-                if (identity) {
-                    const displayName = identity.providerDisplayName
-                        || identity.customDisplayName
-                        || identity.displayName;
-                    if (displayName) {
-                        nameMap.set(id, displayName);
+                if (data.value) {
+                    idToDescriptor.set(id, data.value);
+                }
+            } catch {
+                // Descriptor lookup failed — skip
+            }
+        }
+
+        if (idToDescriptor.size > 0) {
+            const descriptorToId = new Map<string, string>();
+            for (const [id, desc] of idToDescriptor) {
+                descriptorToId.set(desc, id);
+            }
+            try {
+                const url =
+                    `https://vssps.dev.azure.com/${encodeURIComponent(org)}` +
+                    `/_apis/graph/subjectlookup?api-version=7.1-preview.1`;
+                const body = await httpsRequest(url, 'POST', {
+                    ...authHeaders(token),
+                    'Content-Type': 'application/json',
+                }, {
+                    lookupKeys: [...idToDescriptor.values()].map((d) => ({ descriptor: d })),
+                });
+                const data = JSON.parse(body);
+                for (const [descriptor, subject] of Object.entries(data.value ?? {})) {
+                    const s = subject as { displayName?: string };
+                    const originalId = descriptorToId.get(descriptor);
+                    if (s.displayName && originalId) {
+                        nameMap.set(originalId, s.displayName);
                     }
                 }
             } catch {
-                // Individual lookup failed — skip this ID
+                // Subject lookup failed — skip
             }
         }
     }
+
     return nameMap;
 }
 
