@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { EnrichedPullRequest, PrThread, getPrThreads, getPrIterations, replyToThread, addPullRequestComment } from './api';
 import { getToken } from './auth';
 import { buildPrFileUri } from './prContentProvider';
+import { setCommentContent, buildCommentDocUri } from './prCommentDocProvider';
 
 type DiscussionTreeItem = PrDiscussionItem | PrDiscussionReplyItem;
 
@@ -91,8 +92,14 @@ export class PrDiscussionItem extends vscode.TreeItem {
 
         this.contextValue = 'discussionThread';
 
-        // Click to open the diff at the comment's file/line (file comments only)
+        // Click to open the diff (file comments) or the full comment (general comments)
         if (filePath && sourceCommitId && targetCommitId) {
+            this.command = {
+                command: 'azureDevops.openDiscussionComment',
+                title: 'Open Comment',
+                arguments: [this],
+            };
+        } else if (isGeneral) {
             this.command = {
                 command: 'azureDevops.openDiscussionComment',
                 title: 'Open Comment',
@@ -224,10 +231,12 @@ export class PrDiscussionProvider implements vscode.TreeDataProvider<DiscussionT
         this.refresh();
     }
 
-    /** Open a diff at the comment's file and line. */
+    /** Open a diff at the comment's file and line, or show full text for general comments. */
     async openComment(item: PrDiscussionItem): Promise<void> {
         const ctx = item.thread.threadContext;
-        if (!ctx?.filePath) { return; }
+        if (!ctx?.filePath) {
+            return this.showFullComment(item);
+        }
 
         const filePath = ctx.filePath;
         const isRight = !!ctx.rightFileStart;
@@ -255,5 +264,29 @@ export class PrDiscussionProvider implements vscode.TreeDataProvider<DiscussionT
                 }
             }, 300);
         }
+    }
+
+    /** Open a read-only markdown document showing the full discussion thread. */
+    private async showFullComment(item: PrDiscussionItem): Promise<void> {
+        const userComments = item.thread.comments.filter(
+            (c) => !c.isDeleted && c.commentType !== 'system'
+        );
+        if (userComments.length === 0) { return; }
+
+        const lines: string[] = [];
+        for (const comment of userComments) {
+            lines.push(`**${comment.author.displayName}**\n`);
+            lines.push(comment.content);
+            lines.push('\n---\n');
+        }
+        // Remove trailing separator
+        lines.pop();
+
+        const markdown = lines.join('\n');
+        setCommentContent(item.thread.id, markdown);
+
+        const uri = buildCommentDocUri(item.thread.id);
+        const doc = await vscode.workspace.openTextDocument(uri);
+        await vscode.window.showTextDocument(doc, { preview: true });
     }
 }
