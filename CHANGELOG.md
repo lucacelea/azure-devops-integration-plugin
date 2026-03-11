@@ -34,6 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Add Comment on Line** command for posting inline comments on PR diffs from the editor
 - **Configurable linked work item state on PR creation**: new setting `azureDevops.pullRequestLinkedWorkItemState` lets you specify a state (e.g. `To verify`) to automatically apply to the linked work item when creating a pull request. Leave empty to disable the transition.
 - **Pull request template support**: automatically detects PR templates (`.azuredevops/pull_request_template.md` and common variants) and opens them in an editor tab when creating a PR. Edit the description and close the tab to submit, or clear all text to skip — no save prompts, similar to git commit messages.
+- **Work item picker during PR creation**: new setting `azureDevops.showAssignedWorkItems` (enabled by default) displays a multi-select picker of work items assigned to you when creating a pull request, allowing you to easily link multiple work items to the PR. Work items detected from the branch name are pre-selected.
 
 ### Fixed
 
