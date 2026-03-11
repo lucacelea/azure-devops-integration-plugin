@@ -185,7 +185,7 @@ async function getChecks(
                 || 'Policy check',
             status: (['approved', 'rejected', 'running', 'queued', 'broken', 'notApplicable'].includes(e.status)
                 ? e.status
-                : 'running') as PolicyCheck['status'],
+                : 'notApplicable') as PolicyCheck['status'],
             isBlocking: e.configuration.isBlocking,
         }));
 

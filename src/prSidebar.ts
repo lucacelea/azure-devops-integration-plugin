@@ -180,11 +180,15 @@ export class PullRequestItem extends vscode.TreeItem {
                 break;
         }
 
-        const statusLabel =
-            check.status === 'approved' ? 'Passed' :
-            check.status === 'rejected' || check.status === 'broken' ? 'Failed' :
-            check.status === 'running' || check.status === 'queued' ? 'Running' :
-            'N/A';
+        const statusLabels: Record<PolicyCheck['status'], string> = {
+            approved: 'Passed',
+            rejected: 'Failed',
+            broken: 'Failed',
+            running: 'Running',
+            queued: 'Running',
+            notApplicable: 'N/A',
+        };
+        const statusLabel = statusLabels[check.status];
 
         const item = new PullRequestItem(
             check.name,
