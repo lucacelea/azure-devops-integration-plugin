@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { getOrganization } from './config';
 import { getToken } from './auth';
-import { getMyPullRequests, getUserId, EnrichedPullRequest } from './api';
+import { getMyPullRequests, getUserId, EnrichedPullRequest, MyPullRequests } from './api';
 
 export class PullRequestItem extends vscode.TreeItem {
     public children?: PullRequestItem[];
@@ -177,6 +177,8 @@ export class PullRequestTreeProvider implements vscode.TreeDataProvider<PullRequ
     public cachedOrg?: string;
     private currentFilter: PrFilter = 'all';
     private currentSort: PrSort = 'default';
+    private previousCommentCounts: Map<number, number> = new Map();
+    private initialized = false;
 
     constructor(secretStorage: vscode.SecretStorage) {
         this.secretStorage = secretStorage;
@@ -236,6 +238,69 @@ export class PullRequestTreeProvider implements vscode.TreeDataProvider<PullRequ
         }
     }
 
+    checkForNewComments(allPrs: EnrichedPullRequest[]): void {
+        const newCounts = new Map<number, number>();
+        const prsWithNewComments: EnrichedPullRequest[] = [];
+
+        for (const pr of allPrs) {
+            newCounts.set(pr.pullRequestId, pr.unresolvedCommentCount);
+
+            if (this.initialized) {
+                const previous = this.previousCommentCounts.get(pr.pullRequestId) ?? 0;
+                if (pr.unresolvedCommentCount > previous) {
+                    prsWithNewComments.push(pr);
+                }
+            }
+        }
+
+        this.previousCommentCounts = newCounts;
+        this.initialized = true;
+
+        if (prsWithNewComments.length === 1) {
+            const pr = prsWithNewComments[0];
+            vscode.window.showInformationMessage(
+                `New unresolved comments on PR #${pr.pullRequestId}: ${pr.title}`
+            );
+        } else if (prsWithNewComments.length > 1) {
+            vscode.window.showInformationMessage(
+                `New unresolved comments on ${prsWithNewComments.length} pull requests`
+            );
+        }
+    }
+
+    private async fetchPullRequests(): Promise<{ org: string; result: MyPullRequests } | undefined> {
+        const token = await getToken(this.secretStorage);
+        if (!token) { return undefined; }
+
+        let org: string;
+        try {
+            org = await getOrganization();
+        } catch {
+            return undefined;
+        }
+
+        this.cachedOrg = org;
+        try {
+            this.cachedUserId = await getUserId(org, token);
+        } catch { /* ignore */ }
+
+        try {
+            const result = await getMyPullRequests(org, token);
+            return { org, result };
+        } catch {
+            return undefined;
+        }
+    }
+
+    async pollForNewComments(): Promise<void> {
+        const fetched = await this.fetchPullRequests();
+        if (!fetched) { return; }
+
+        const { createdByMe, assignedToMe, assignedToMyTeams } = fetched.result;
+        this.checkForNewComments([...createdByMe, ...assignedToMe, ...assignedToMyTeams]);
+        this.refresh();
+    }
+
     getTreeItem(element: PullRequestItem): vscode.TreeItem {
         return element;
     }
@@ -246,36 +311,24 @@ export class PullRequestTreeProvider implements vscode.TreeDataProvider<PullRequ
         }
 
         // Root level
-        const token = await getToken(this.secretStorage);
-        if (!token) {
-            return [
-                PullRequestItem.message(
-                    'Set up PAT to view pull requests',
-                    'azureDevops.setToken'
-                ),
-            ];
+        const fetched = await this.fetchPullRequests();
+        if (!fetched) {
+            const token = await getToken(this.secretStorage);
+            if (!token) {
+                return [
+                    PullRequestItem.message(
+                        'Set up PAT to view pull requests',
+                        'azureDevops.setToken'
+                    ),
+                ];
+            }
+            return [PullRequestItem.message('Failed to fetch pull requests')];
         }
 
-        let org: string;
-        try {
-            org = await getOrganization();
-        } catch (e: any) {
-            return [PullRequestItem.message(e.message || 'Failed to get Azure DevOps organization')];
-        }
-
-        this.cachedOrg = org;
-        try {
-            this.cachedUserId = await getUserId(org, token);
-        } catch { /* ignore */ }
-
-        let result;
-        try {
-            result = await getMyPullRequests(org, token);
-        } catch (e: any) {
-            return [PullRequestItem.message(`Error fetching PRs: ${e.message}`)];
-        }
-
+        const { org, result } = fetched;
         const { createdByMe, assignedToMe, assignedToMyTeams } = result;
+
+        this.checkForNewComments([...createdByMe, ...assignedToMe, ...assignedToMyTeams]);
 
         const filteredCreated = this.sortPrs(this.filterPrs(createdByMe));
         const filteredAssigned = this.sortPrs(this.filterPrs(assignedToMe));
@@ -315,14 +368,18 @@ export function registerPrSidebar(
 
     vscode.window.registerTreeDataProvider('azureDevops.pullRequests', provider);
 
+    // Establish baseline comment counts immediately so the first interval
+    // poll can detect changes (the call is fire-and-forget).
+    provider.pollForNewComments();
+
     const settings = vscode.workspace.getConfiguration('azureDevops');
-    let intervalSeconds = settings.get<number>('pullRequestRefreshInterval', 300);
+    let intervalSeconds = settings.get<number>('pullRequestRefreshInterval', 60);
     if (intervalSeconds < 30) {
         intervalSeconds = 30;
     }
 
     const intervalHandle = setInterval(() => {
-        provider.refresh();
+        provider.pollForNewComments();
     }, intervalSeconds * 1000);
 
     context.subscriptions.push({

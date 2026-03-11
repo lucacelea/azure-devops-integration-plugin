@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Background notifications for new PR comments**: automatically notifies when new unresolved comments appear on your pull requests, even when the sidebar panel is closed or VS Code is minimized. Tracks unresolved comment counts across polling cycles and shows native notifications when counts increase.
+  - Single PR: "New unresolved comments on PR #42: Fix auth flow"
+  - Multiple PRs: "New unresolved comments on 3 pull requests"
+
+### Changed
+
+- **Faster default polling interval**: reduced from 300 seconds (5 minutes) to 60 seconds (1 minute) for more responsive notifications. Configurable via `azureDevops.pullRequestRefreshInterval` (minimum 30 seconds).
+
 ### Fixed
 
 - Fixed pull request template not working on Windows due to drive letter casing mismatch between `os.tmpdir()` and VS Code's URI normalization
