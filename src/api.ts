@@ -181,13 +181,38 @@ function computeChecksStatus(checks: PolicyCheck[]): EnrichedPullRequest['checks
     return 'passed';
 }
 
+async function resolveIdentityNames(
+    org: string,
+    identityIds: string[],
+    token: string
+): Promise<Map<string, string>> {
+    const nameMap = new Map<string, string>();
+    if (identityIds.length === 0) { return nameMap; }
+    try {
+        const idsParam = identityIds.join(',');
+        const url =
+            `https://vssps.dev.azure.com/${encodeURIComponent(org)}` +
+            `/_apis/identities?identityIds=${encodeURIComponent(idsParam)}&api-version=7.1-preview.1`;
+        const body = await httpsGet(url, authHeaders(token));
+        const data = JSON.parse(body);
+        for (const identity of data.value ?? []) {
+            const displayName = identity.providerDisplayName || identity.customDisplayName;
+            if (identity.id && displayName) {
+                nameMap.set(identity.id.toLowerCase(), displayName);
+            }
+        }
+    } catch {
+        // Identity resolution failed — callers fall back to generic names
+    }
+    return nameMap;
+}
+
 async function getChecks(
     org: string,
     project: string,
     projectId: string,
     prId: number,
-    token: string,
-    reviewers: Array<{ displayName: string; id: string }>
+    token: string
 ): Promise<{ checksStatus: EnrichedPullRequest['checksStatus']; checks: PolicyCheck[] }> {
     const artifactId = `vstfs:///CodeReview/CodeReviewId/${projectId}/${prId}`;
     const url =
@@ -213,12 +238,18 @@ async function getChecks(
 
         const validStatuses = ['approved', 'rejected', 'running', 'queued', 'broken', 'notApplicable'];
 
-        // Build a lookup map of reviewer IDs to display names for
-        // resolving Required Reviewers policy entries.
-        const reviewerNamesById = new Map<string, string>();
-        for (const r of reviewers) {
-            reviewerNamesById.set(r.id.toLowerCase(), r.displayName);
+        // Collect all unique requiredReviewerIds from Required Reviewers
+        // policies so we can resolve them to display names in one call.
+        const allReviewerIds = new Set<string>();
+        for (const e of evaluations) {
+            const typeId = normalizeGuid(e.configuration.type?.id ?? '');
+            if (typeId === REQUIRED_REVIEWERS_TYPE_ID) {
+                for (const id of e.configuration.settings?.requiredReviewerIds ?? []) {
+                    allReviewerIds.add(id);
+                }
+            }
         }
+        const reviewerNamesById = await resolveIdentityNames(org, Array.from(allReviewerIds), token);
 
         const checks: PolicyCheck[] = evaluations
             .filter((e) =>
@@ -240,7 +271,7 @@ async function getChecks(
             }
 
             // For Required Reviewers policies, resolve the actual
-            // reviewer/team name from the PR's reviewers list.
+            // reviewer/team name via the Identities API.
             let name = e.configuration.settings?.displayName
                 || e.configuration.settings?.statusName
                 || e.configuration.type?.displayName
@@ -287,7 +318,7 @@ async function enrichPullRequests(
                     ? getUnresolvedCommentCount(org, project, repoId, pr.pullRequestId, token)
                     : Promise.resolve(0),
                 project && projectId
-                    ? getChecks(org, project, projectId, pr.pullRequestId, token, pr.reviewers ?? [])
+                    ? getChecks(org, project, projectId, pr.pullRequestId, token)
                     : Promise.resolve({ checksStatus: 'none' as const, checks: [] as PolicyCheck[] }),
             ]);
 
