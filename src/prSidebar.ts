@@ -328,6 +328,8 @@ export class PullRequestTreeProvider implements vscode.TreeDataProvider<PullRequ
         const { org, result } = fetched;
         const { createdByMe, assignedToMe, assignedToMyTeams } = result;
 
+        this.checkForNewComments([...createdByMe, ...assignedToMe, ...assignedToMyTeams]);
+
         const filteredCreated = this.sortPrs(this.filterPrs(createdByMe));
         const filteredAssigned = this.sortPrs(this.filterPrs(assignedToMe));
         const filteredTeams = this.sortPrs(this.filterPrs(assignedToMyTeams));
@@ -365,6 +367,10 @@ export function registerPrSidebar(
     const provider = new PullRequestTreeProvider(secretStorage);
 
     vscode.window.registerTreeDataProvider('azureDevops.pullRequests', provider);
+
+    // Establish baseline comment counts immediately so the first interval
+    // poll can detect changes (the call is fire-and-forget).
+    provider.pollForNewComments();
 
     const settings = vscode.workspace.getConfiguration('azureDevops');
     let intervalSeconds = settings.get<number>('pullRequestRefreshInterval', 300);
