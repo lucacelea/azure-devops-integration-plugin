@@ -9,6 +9,11 @@ export function setCommentContent(threadId: number, markdown: string): void {
     contentStore.set(threadId, markdown);
 }
 
+/** Remove all stored comment content (e.g. when discussion view is cleared). */
+export function clearCommentContent(): void {
+    contentStore.clear();
+}
+
 /** Build a read-only virtual-document URI for the given thread. */
 export function buildCommentDocUri(threadId: number): vscode.Uri {
     return vscode.Uri.parse(`${PR_COMMENT_SCHEME}://thread/Thread-${threadId}.md`);

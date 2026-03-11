@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { EnrichedPullRequest, PrThread, getPrThreads, getPrIterations, replyToThread, addPullRequestComment } from './api';
 import { getToken } from './auth';
 import { buildPrFileUri } from './prContentProvider';
-import { setCommentContent, buildCommentDocUri } from './prCommentDocProvider';
+import { setCommentContent, buildCommentDocUri, clearCommentContent } from './prCommentDocProvider';
 
 type DiscussionTreeItem = PrDiscussionItem | PrDiscussionReplyItem;
 
@@ -93,13 +93,7 @@ export class PrDiscussionItem extends vscode.TreeItem {
         this.contextValue = 'discussionThread';
 
         // Click to open the diff (file comments) or the full comment (general comments)
-        if (filePath && sourceCommitId && targetCommitId) {
-            this.command = {
-                command: 'azureDevops.openDiscussionComment',
-                title: 'Open Comment',
-                arguments: [this],
-            };
-        } else if (isGeneral) {
+        if (isGeneral || (filePath && sourceCommitId && targetCommitId)) {
             this.command = {
                 command: 'azureDevops.openDiscussionComment',
                 title: 'Open Comment',
@@ -134,6 +128,7 @@ export class PrDiscussionProvider implements vscode.TreeDataProvider<DiscussionT
     clear(): void {
         this.selectedPr = undefined;
         this.selectedOrg = undefined;
+        clearCommentContent();
         this._onDidChangeTreeData.fire();
     }
 
@@ -275,7 +270,8 @@ export class PrDiscussionProvider implements vscode.TreeDataProvider<DiscussionT
 
         const lines: string[] = [];
         for (const comment of userComments) {
-            lines.push(`**${comment.author.displayName}**\n`);
+            lines.push(`**${comment.author.displayName}**`);
+            lines.push('');
             lines.push(comment.content);
             lines.push('\n---\n');
         }
