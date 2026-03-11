@@ -156,14 +156,17 @@ async function getUnresolvedCommentCount(
     }
 }
 
-// Well-known Azure DevOps policy type IDs that are NOT CI/status checks.
-// These are branch-level governance policies (reviewer requirements, merge
-// strategy) and should not appear as checks in the tree.
-const EXCLUDED_POLICY_TYPE_IDS = new Set([
-    'fa4e907d-c16b-4a4c-9dfa-4916e5d171ab', // Minimum number of reviewers
-    'fd2167ab-b0be-447a-8571-0615d2f67893', // Required reviewers
-    'fa4e907d-c16b-4a4c-9dfa-4906e5d171cb', // Merge strategy
+// Well-known Azure DevOps policy type IDs to include from policy evaluations.
+// Only non-build governance checks are fetched here; build/CI statuses are
+// fetched separately from the PR statuses API for accurate status reporting.
+const INCLUDED_POLICY_TYPE_IDS = new Set([
+    '40e92b44-2fe1-4dd6-b3d8-ce34c45c4d11', // Work item linking
+    'c6a1889d-b943-4856-b76f-9e46bb6b0df2', // Comment requirements
 ]);
+
+function normalizeGuid(id: string): string {
+    return id.replace(/[{}]/g, '').toLowerCase();
+}
 
 function computeChecksStatus(checks: PolicyCheck[]): EnrichedPullRequest['checksStatus'] {
     const blocking = checks.filter((c) => c.isBlocking);
@@ -177,13 +180,13 @@ function computeChecksStatus(checks: PolicyCheck[]): EnrichedPullRequest['checks
     return 'passed';
 }
 
-async function getChecks(
+async function getPolicyChecks(
     org: string,
     project: string,
     projectId: string,
     prId: number,
     token: string
-): Promise<{ checksStatus: EnrichedPullRequest['checksStatus']; checks: PolicyCheck[] }> {
+): Promise<PolicyCheck[]> {
     const artifactId = `vstfs:///CodeReview/CodeReviewId/${projectId}/${prId}`;
     const url =
         `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}` +
@@ -200,48 +203,82 @@ async function getChecks(
                 type?: { id?: string; displayName?: string };
                 settings?: { displayName?: string; statusName?: string };
             };
-            context?: {
-                isExpired?: boolean;
-                buildId?: number;
-            };
         }>;
 
         const validStatuses = ['approved', 'rejected', 'running', 'queued', 'broken', 'notApplicable'];
 
-        const checks: PolicyCheck[] = evaluations
+        return evaluations
             .filter((e) =>
                 e.configuration.isEnabled &&
                 !e.configuration.isDeleted &&
-                !EXCLUDED_POLICY_TYPE_IDS.has(e.configuration.type?.id ?? ''))
-            .map((e) => {
-            let status: PolicyCheck['status'];
-            if (validStatuses.includes(e.status)) {
-                status = e.status as PolicyCheck['status'];
-            } else {
-                status = 'notApplicable';
-            }
-
-            // Build policies may report "running" even after the build
-            // has finished when the evaluation itself is expired/stale.
-            if (status === 'running' && e.context?.isExpired) {
-                status = 'broken';
-            }
-
-            return {
+                INCLUDED_POLICY_TYPE_IDS.has(normalizeGuid(e.configuration.type?.id ?? '')))
+            .map((e) => ({
                 name: e.configuration.settings?.displayName
                     || e.configuration.settings?.statusName
                     || e.configuration.type?.displayName
                     || 'Policy check',
-                status,
+                status: (validStatuses.includes(e.status)
+                    ? e.status
+                    : 'notApplicable') as PolicyCheck['status'],
                 isBlocking: e.configuration.isBlocking,
-            };
-        });
-
-        const checksStatus = computeChecksStatus(checks);
-
-        return { checksStatus, checks };
+            }));
     } catch {
-        return { checksStatus: 'none', checks: [] };
+        return [];
+    }
+}
+
+async function getBuildStatuses(
+    org: string,
+    project: string,
+    repoId: string,
+    prId: number,
+    token: string
+): Promise<PolicyCheck[]> {
+    const url =
+        `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}` +
+        `/_apis/git/repositories/${encodeURIComponent(repoId)}/pullRequests/${prId}/statuses?api-version=7.1`;
+    try {
+        const body = await httpsGet(url, authHeaders(token));
+        const data = JSON.parse(body);
+
+        interface PrStatus {
+            state: string;
+            description?: string;
+            context: { name: string; genre?: string };
+            creationDate: string;
+        }
+
+        const statuses = data.value as PrStatus[];
+
+        // Keep only the latest status per unique context (genre/name)
+        const latestByContext = new Map<string, PrStatus>();
+        for (const s of statuses) {
+            const key = `${s.context.genre ?? ''}/${s.context.name}`;
+            const existing = latestByContext.get(key);
+            if (!existing || s.creationDate > existing.creationDate) {
+                latestByContext.set(key, s);
+            }
+        }
+
+        const stateMap: Record<string, PolicyCheck['status']> = {
+            succeeded: 'approved',
+            failed: 'rejected',
+            error: 'broken',
+            pending: 'running',
+            notSet: 'queued',
+            notApplicable: 'notApplicable',
+        };
+
+        // PR statuses are posted by build/CI pipelines that are configured
+        // as required checks — treat them all as blocking since only
+        // pipeline-associated policies produce PR-level statuses.
+        return [...latestByContext.values()].map((s) => ({
+            name: s.context.name,
+            status: stateMap[s.state] ?? 'notApplicable',
+            isBlocking: true,
+        }));
+    } catch {
+        return [];
     }
 }
 
@@ -256,16 +293,19 @@ async function enrichPullRequests(
             const projectId = pr.repository?.project?.id ?? '';
             const repoId = pr.repository?.id ?? '';
 
-            const [unresolvedCommentCount, checksResult] = await Promise.all([
+            const [unresolvedCommentCount, policyChecks, buildStatuses] = await Promise.all([
                 project && repoId
                     ? getUnresolvedCommentCount(org, project, repoId, pr.pullRequestId, token)
                     : Promise.resolve(0),
                 project && projectId
-                    ? getChecks(org, project, projectId, pr.pullRequestId, token)
-                    : Promise.resolve({ checksStatus: 'none' as const, checks: [] as PolicyCheck[] }),
+                    ? getPolicyChecks(org, project, projectId, pr.pullRequestId, token)
+                    : Promise.resolve([] as PolicyCheck[]),
+                project && repoId
+                    ? getBuildStatuses(org, project, repoId, pr.pullRequestId, token)
+                    : Promise.resolve([] as PolicyCheck[]),
             ]);
 
-            const checks = [...checksResult.checks];
+            const checks = [...buildStatuses, ...policyChecks];
 
             // Add a synthetic check for merge conflicts based on the PR's
             // mergeStatus field (this isn't a policy evaluation, but it's
