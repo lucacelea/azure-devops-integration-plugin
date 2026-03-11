@@ -442,6 +442,57 @@ export async function updateWorkItemState(
     ]);
 }
 
+export interface WorkItem {
+    id: number;
+    title: string;
+    state: string;
+    type: string;
+}
+
+export async function getAssignedWorkItems(
+    org: string, project: string, token: string
+): Promise<WorkItem[]> {
+    const wiqlUrl =
+        `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}` +
+        `/_apis/wit/wiql?api-version=7.1`;
+    const wiqlBody = {
+        query:
+            "SELECT [System.Id] FROM WorkItems" +
+            " WHERE [System.AssignedTo] = @Me" +
+            " AND [System.State] NOT IN ('Done', 'Closed', 'Resolved', 'Removed')" +
+            " ORDER BY [System.ChangedDate] DESC",
+    };
+    const wiqlResponse = await httpsRequest(wiqlUrl, 'POST', authHeaders(token), wiqlBody);
+    const wiqlData = JSON.parse(wiqlResponse);
+    const workItemIds: number[] = (wiqlData.workItems as Array<{ id: number }>).map((wi) => wi.id);
+
+    if (workItemIds.length === 0) {
+        return [];
+    }
+
+    // Fetch details in batches of 200 (API limit)
+    const batchSize = 200;
+    const allWorkItems: WorkItem[] = [];
+    for (let i = 0; i < workItemIds.length; i += batchSize) {
+        const batch = workItemIds.slice(i, i + batchSize);
+        const batchUrl =
+            `https://dev.azure.com/${encodeURIComponent(org)}/_apis/wit/workitems` +
+            `?ids=${batch.join(',')}&fields=System.Id,System.Title,System.State,System.WorkItemType&api-version=7.1`;
+        const batchResponse = await httpsGet(batchUrl, authHeaders(token));
+        const batchData = JSON.parse(batchResponse);
+        for (const item of batchData.value as Array<{ id: number; fields: Record<string, string> }>) {
+            allWorkItems.push({
+                id: item.id,
+                title: item.fields['System.Title'] ?? '',
+                state: item.fields['System.State'] ?? '',
+                type: item.fields['System.WorkItemType'] ?? '',
+            });
+        }
+    }
+
+    return allWorkItems;
+}
+
 // --- PR diff APIs (Phase 2) ---
 
 export async function getPrIterations(
