@@ -373,7 +373,7 @@ export function registerPrSidebar(
     provider.pollForNewComments();
 
     const settings = vscode.workspace.getConfiguration('azureDevops');
-    let intervalSeconds = settings.get<number>('pullRequestRefreshInterval', 300);
+    let intervalSeconds = settings.get<number>('pullRequestRefreshInterval', 60);
     if (intervalSeconds < 30) {
         intervalSeconds = 30;
     }
