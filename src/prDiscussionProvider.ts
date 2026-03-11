@@ -11,12 +11,18 @@ export class PrDiscussionReplyItem extends vscode.TreeItem {
         public readonly author: string,
         public readonly content: string,
         public readonly date: string,
+        parentItem: PrDiscussionItem,
     ) {
         super(author, vscode.TreeItemCollapsibleState.None);
         const preview = content.replaceAll('\n', ' ').slice(0, 100);
         this.description = preview;
         this.tooltip = new vscode.MarkdownString(`**${author}**\n\n${content}`);
         this.iconPath = new vscode.ThemeIcon('comment');
+        this.command = {
+            command: 'azureDevops.openDiscussionComment',
+            title: 'Open Comment',
+            arguments: [parentItem],
+        };
     }
 }
 
@@ -67,7 +73,7 @@ export class PrDiscussionItem extends vscode.TreeItem {
 
         // Build reply items for children
         this.replyItems = userComments.slice(1).map((c) =>
-            new PrDiscussionReplyItem(c.author.displayName, c.content, c.publishedDate)
+            new PrDiscussionReplyItem(c.author.displayName, c.content, c.publishedDate, this)
         );
 
         // Icon

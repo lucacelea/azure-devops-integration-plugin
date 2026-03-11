@@ -1,4 +1,4 @@
-import { PrDiscussionItem } from '../prDiscussionProvider';
+import { PrDiscussionItem, PrDiscussionReplyItem } from '../prDiscussionProvider';
 import { PrThread } from '../api';
 
 function makeThread(overrides: Partial<PrThread> = {}): PrThread {
@@ -19,6 +19,31 @@ function makeThread(overrides: Partial<PrThread> = {}): PrThread {
         ],
         ...overrides,
     };
+}
+
+function makeThreadWithReply(): PrThread {
+    return makeThread({
+        comments: [
+            {
+                id: 1,
+                parentCommentId: 0,
+                content: 'This is the original comment',
+                author: { displayName: 'Alice', id: 'a1' },
+                publishedDate: '2024-01-15T10:00:00Z',
+                commentType: 'text',
+                isDeleted: false,
+            },
+            {
+                id: 2,
+                parentCommentId: 1,
+                content: 'This is a reply that should also be openable',
+                author: { displayName: 'Bob', id: 'b1' },
+                publishedDate: '2024-01-15T11:00:00Z',
+                commentType: 'text',
+                isDeleted: false,
+            },
+        ],
+    });
 }
 
 describe('PrDiscussionItem', () => {
@@ -68,5 +93,45 @@ describe('PrDiscussionItem', () => {
         const item = new PrDiscussionItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
 
         expect((item.iconPath as any)?.id).toBe('megaphone');
+    });
+});
+
+describe('PrDiscussionReplyItem', () => {
+    it('sets a command that opens the parent thread', () => {
+        const thread = makeThreadWithReply();
+        const item = new PrDiscussionItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
+
+        expect(item.replyItems).toHaveLength(1);
+        const reply = item.replyItems[0];
+        expect(reply.command).toBeDefined();
+        expect(reply.command!.command).toBe('azureDevops.openDiscussionComment');
+        expect(reply.command!.arguments).toEqual([item]);
+    });
+
+    it('truncates long reply content in description', () => {
+        const thread = makeThread({
+            comments: [
+                {
+                    id: 1, parentCommentId: 0,
+                    content: 'Original',
+                    author: { displayName: 'Alice', id: 'a1' },
+                    publishedDate: '2024-01-15T10:00:00Z',
+                    commentType: 'text',
+                    isDeleted: false,
+                },
+                {
+                    id: 2, parentCommentId: 1,
+                    content: 'R'.repeat(200),
+                    author: { displayName: 'Bob', id: 'b1' },
+                    publishedDate: '2024-01-15T11:00:00Z',
+                    commentType: 'text',
+                    isDeleted: false,
+                },
+            ],
+        });
+        const item = new PrDiscussionItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
+        const reply = item.replyItems[0];
+
+        expect((reply.description as string).length).toBeLessThanOrEqual(100);
     });
 });
