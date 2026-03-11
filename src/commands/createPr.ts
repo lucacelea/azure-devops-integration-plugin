@@ -6,7 +6,7 @@ import { getDevOpsConfig, getBaseUrl, getWorkItemProject } from '../config';
 import { getCurrentBranch, getDefaultBranch, getRepositoryRoot } from '../git';
 import { getWorkItemId } from '../workItem';
 import { getToken } from '../auth';
-import { createPullRequestApi, getRepositoryId, getUserId, setAutoComplete, updateWorkItemState } from '../api';
+import { createPullRequestApi, getAssignedWorkItems, getRepositoryId, getUserId, setAutoComplete, updateWorkItemState, WorkItem } from '../api';
 
 async function getPullRequestTemplate(): Promise<string | undefined> {
     const repoRoot = await getRepositoryRoot();
@@ -146,6 +146,45 @@ export async function createPullRequest(secretStorage: vscode.SecretStorage): Pr
         );
         if (!isDraft) { return; }
 
+        // Work item selection
+        let selectedWorkItemIds: number[] = hasValidWorkItemId ? [parsedWorkItemId] : [];
+        let workItemProject: string | undefined;
+
+        const showWorkItemPicker = vscode.workspace
+            .getConfiguration('azureDevops')
+            .get<boolean>('showAssignedWorkItems', true);
+
+        if (showWorkItemPicker) {
+            try {
+                workItemProject = await getWorkItemProject();
+                const assignedWorkItems = await vscode.window.withProgress(
+                    { location: vscode.ProgressLocation.Notification, title: 'Fetching assigned work items...' },
+                    () => getAssignedWorkItems(config.organization, workItemProject!, token)
+                );
+
+                if (assignedWorkItems.length > 0) {
+                    const quickPickItems = assignedWorkItems.map((wi: WorkItem) => ({
+                        label: `#${wi.id} ${wi.title}`,
+                        description: `${wi.type} · ${wi.state}`,
+                        picked: selectedWorkItemIds.includes(wi.id),
+                        workItemId: wi.id,
+                    }));
+
+                    const selected = await vscode.window.showQuickPick(quickPickItems, {
+                        placeHolder: 'Select work items to link to this pull request',
+                        canPickMany: true,
+                    });
+
+                    if (selected === undefined) { return; }
+                    selectedWorkItemIds = selected.map((s: { workItemId: number }) => s.workItemId);
+                }
+            } catch (error) {
+                vscode.window.showWarningMessage(
+                    `Could not fetch assigned work items: ${error instanceof Error ? error.message : error}`
+                );
+            }
+        }
+
         const template = await getPullRequestTemplate();
         const description = await editPullRequestDescription(template);
 
@@ -163,25 +202,27 @@ export async function createPullRequest(secretStorage: vscode.SecretStorage): Pr
                     targetRefName: `refs/heads/${targetBranch}`,
                     title,
                     description,
-                    workItemIds: hasValidWorkItemId ? [parsedWorkItemId] : undefined,
+                    workItemIds: selectedWorkItemIds.length > 0 ? selectedWorkItemIds : undefined,
                     isDraft: isDraft.value,
                     token,
                 });
 
-                if (hasValidWorkItemId && workItemState) {
-                    try {
-                        const workItemProject = await getWorkItemProject();
-                        await updateWorkItemState(
-                            config.organization,
-                            workItemProject,
-                            parsedWorkItemId,
-                            workItemState,
-                            token
-                        );
-                    } catch (error) {
-                        vscode.window.showWarningMessage(
-                            `PR created, but failed to set linked work item #${parsedWorkItemId} state to "${workItemState}": ${error instanceof Error ? error.message : error}`
-                        );
+                if (selectedWorkItemIds.length > 0 && workItemState) {
+                    const wiProject = workItemProject ?? await getWorkItemProject();
+                    for (const wiId of selectedWorkItemIds) {
+                        try {
+                            await updateWorkItemState(
+                                config.organization,
+                                wiProject,
+                                wiId,
+                                workItemState,
+                                token
+                            );
+                        } catch (error) {
+                            vscode.window.showWarningMessage(
+                                `PR created, but failed to set linked work item #${wiId} state to "${workItemState}": ${error instanceof Error ? error.message : error}`
+                            );
+                        }
                     }
                 }
 

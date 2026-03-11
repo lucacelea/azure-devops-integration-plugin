@@ -363,6 +363,11 @@
           "type": "boolean",
           "default": true,
           "description": "Complete associated work items after merging when auto-complete is set."
+        },
+        "azureDevops.showAssignedWorkItems": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a work item picker during pull request creation, allowing you to select work items assigned to you to link to the PR. Items from the branch name are pre-selected."
         }
       }
     }
