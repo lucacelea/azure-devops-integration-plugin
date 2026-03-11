@@ -188,21 +188,49 @@ async function resolveIdentityNames(
 ): Promise<Map<string, string>> {
     const nameMap = new Map<string, string>();
     if (identityIds.length === 0) { return nameMap; }
+
+    // Try batch lookup — GUIDs only contain hex chars and hyphens so they
+    // don't need URL encoding.  Encoding the comma separator (%2C) breaks
+    // the Azure DevOps API which expects literal commas.
     try {
-        const idsParam = identityIds.join(',');
+        const idsParam = identityIds.map(normalizeGuid).join(',');
         const url =
             `https://vssps.dev.azure.com/${encodeURIComponent(org)}` +
-            `/_apis/identities?identityIds=${encodeURIComponent(idsParam)}&api-version=7.1-preview.1`;
+            `/_apis/identities?identityIds=${idsParam}&api-version=6.0`;
         const body = await httpsGet(url, authHeaders(token));
         const data = JSON.parse(body);
         for (const identity of data.value ?? []) {
-            const displayName = identity.providerDisplayName || identity.customDisplayName;
-            if (identity.id && displayName) {
-                nameMap.set(identity.id.toLowerCase(), displayName);
+            const displayName = identity.providerDisplayName
+                || identity.customDisplayName
+                || identity.displayName;
+            const id = identity.id;
+            if (id && displayName) {
+                nameMap.set(normalizeGuid(id), displayName);
             }
         }
     } catch {
-        // Identity resolution failed — callers fall back to generic names
+        // Batch lookup failed — try individual lookups as fallback
+        for (const rawId of identityIds) {
+            try {
+                const id = normalizeGuid(rawId);
+                const url =
+                    `https://vssps.dev.azure.com/${encodeURIComponent(org)}` +
+                    `/_apis/identities?identityIds=${id}&api-version=6.0`;
+                const body = await httpsGet(url, authHeaders(token));
+                const data = JSON.parse(body);
+                const identity = data.value?.[0];
+                if (identity) {
+                    const displayName = identity.providerDisplayName
+                        || identity.customDisplayName
+                        || identity.displayName;
+                    if (displayName) {
+                        nameMap.set(id, displayName);
+                    }
+                }
+            } catch {
+                // Individual lookup failed — skip this ID
+            }
+        }
     }
     return nameMap;
 }
@@ -212,7 +240,8 @@ async function getChecks(
     project: string,
     projectId: string,
     prId: number,
-    token: string
+    token: string,
+    reviewers: Array<{ displayName: string; id: string }>
 ): Promise<{ checksStatus: EnrichedPullRequest['checksStatus']; checks: PolicyCheck[] }> {
     const artifactId = `vstfs:///CodeReview/CodeReviewId/${projectId}/${prId}`;
     const url =
@@ -238,18 +267,34 @@ async function getChecks(
 
         const validStatuses = ['approved', 'rejected', 'running', 'queued', 'broken', 'notApplicable'];
 
-        // Collect all unique requiredReviewerIds from Required Reviewers
-        // policies so we can resolve them to display names in one call.
-        const allReviewerIds = new Set<string>();
+        // Build a name map from PR reviewers (primary source — zero extra
+        // API calls, and Azure DevOps auto-adds required reviewers to PRs).
+        const reviewerNamesById = new Map<string, string>();
+        for (const r of reviewers) {
+            if (r.id && r.displayName) {
+                reviewerNamesById.set(normalizeGuid(r.id), r.displayName);
+            }
+        }
+
+        // Collect any requiredReviewerIds that weren't resolved from the
+        // PR's reviewers list, then try the Identities API as a fallback.
+        const unresolvedIds: string[] = [];
         for (const e of evaluations) {
             const typeId = normalizeGuid(e.configuration.type?.id ?? '');
             if (typeId === REQUIRED_REVIEWERS_TYPE_ID) {
                 for (const id of e.configuration.settings?.requiredReviewerIds ?? []) {
-                    allReviewerIds.add(id);
+                    if (!reviewerNamesById.has(normalizeGuid(id))) {
+                        unresolvedIds.push(id);
+                    }
                 }
             }
         }
-        const reviewerNamesById = await resolveIdentityNames(org, Array.from(allReviewerIds), token);
+        if (unresolvedIds.length > 0) {
+            const identityNames = await resolveIdentityNames(org, unresolvedIds, token);
+            for (const [id, name] of identityNames) {
+                reviewerNamesById.set(id, name);
+            }
+        }
 
         const checks: PolicyCheck[] = evaluations
             .filter((e) =>
@@ -280,7 +325,7 @@ async function getChecks(
             const typeId = normalizeGuid(e.configuration.type?.id ?? '');
             if (typeId === REQUIRED_REVIEWERS_TYPE_ID && e.configuration.settings?.requiredReviewerIds?.length) {
                 const resolvedNames = e.configuration.settings.requiredReviewerIds
-                    .map((id) => reviewerNamesById.get(id.toLowerCase()))
+                    .map((id) => reviewerNamesById.get(normalizeGuid(id)))
                     .filter((n): n is string => !!n);
                 if (resolvedNames.length > 0) {
                     name = resolvedNames.join(', ');
@@ -318,7 +363,7 @@ async function enrichPullRequests(
                     ? getUnresolvedCommentCount(org, project, repoId, pr.pullRequestId, token)
                     : Promise.resolve(0),
                 project && projectId
-                    ? getChecks(org, project, projectId, pr.pullRequestId, token)
+                    ? getChecks(org, project, projectId, pr.pullRequestId, token, pr.reviewers ?? [])
                     : Promise.resolve({ checksStatus: 'none' as const, checks: [] as PolicyCheck[] }),
             ]);
 
