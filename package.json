@@ -333,7 +333,7 @@
         },
         "azureDevops.pullRequestRefreshInterval": {
           "type": "number",
-          "default": 300,
+          "default": 60,
           "minimum": 30,
           "description": "Interval in seconds to auto-refresh the pull request list (minimum 30)."
         },
