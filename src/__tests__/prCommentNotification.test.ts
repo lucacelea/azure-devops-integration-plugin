@@ -43,7 +43,7 @@ describe('PullRequestTreeProvider.checkForNewComments', () => {
         provider.checkForNewComments(updated);
 
         expect(showInfoMock).toHaveBeenCalledTimes(1);
-        expect(showInfoMock).toHaveBeenCalledWith('New comment on PR #1: My PR');
+        expect(showInfoMock).toHaveBeenCalledWith('New unresolved comments on PR #1: My PR');
     });
 
     it('notifies with plural message when multiple PRs get new comments', () => {
@@ -54,7 +54,7 @@ describe('PullRequestTreeProvider.checkForNewComments', () => {
         provider.checkForNewComments(updated);
 
         expect(showInfoMock).toHaveBeenCalledTimes(1);
-        expect(showInfoMock).toHaveBeenCalledWith('New comments on 2 pull requests');
+        expect(showInfoMock).toHaveBeenCalledWith('New unresolved comments on 2 pull requests');
     });
 
     it('does not notify when comment counts stay the same', () => {
@@ -83,7 +83,7 @@ describe('PullRequestTreeProvider.checkForNewComments', () => {
         provider.checkForNewComments(updated);
 
         expect(showInfoMock).toHaveBeenCalledTimes(1);
-        expect(showInfoMock).toHaveBeenCalledWith('New comment on PR #2: New PR');
+        expect(showInfoMock).toHaveBeenCalledWith('New unresolved comments on PR #2: New PR');
     });
 
     it('does not notify for a newly appeared PR with zero comments', () => {
@@ -105,7 +105,7 @@ describe('PullRequestTreeProvider.checkForNewComments', () => {
         provider.checkForNewComments(updated);
 
         expect(showInfoMock).toHaveBeenCalledTimes(1);
-        expect(showInfoMock).toHaveBeenCalledWith('New comment on PR #1: PR A');
+        expect(showInfoMock).toHaveBeenCalledWith('New unresolved comments on PR #1: PR A');
     });
 
     it('handles empty PR list without errors', () => {

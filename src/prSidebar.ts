@@ -259,11 +259,11 @@ export class PullRequestTreeProvider implements vscode.TreeDataProvider<PullRequ
         if (prsWithNewComments.length === 1) {
             const pr = prsWithNewComments[0];
             vscode.window.showInformationMessage(
-                `New comment on PR #${pr.pullRequestId}: ${pr.title}`
+                `New unresolved comments on PR #${pr.pullRequestId}: ${pr.title}`
             );
         } else if (prsWithNewComments.length > 1) {
             vscode.window.showInformationMessage(
-                `New comments on ${prsWithNewComments.length} pull requests`
+                `New unresolved comments on ${prsWithNewComments.length} pull requests`
             );
         }
     }
