@@ -162,6 +162,9 @@ const EXCLUDED_POLICY_TYPE_IDS = new Set([
     'fa4e907d-c16b-4a4c-9dfa-4916e5d171ab', // Minimum number of reviewers
 ]);
 
+// Required Reviewers policy type ID — used to resolve reviewer names
+const REQUIRED_REVIEWERS_TYPE_ID = 'fd2167ab-b0be-447a-8571-0615d2f67893';
+
 function normalizeGuid(id: string): string {
     return id.replace(/[{}]/g, '').toLowerCase();
 }
@@ -183,7 +186,8 @@ async function getChecks(
     project: string,
     projectId: string,
     prId: number,
-    token: string
+    token: string,
+    reviewers: Array<{ displayName: string; id: string }>
 ): Promise<{ checksStatus: EnrichedPullRequest['checksStatus']; checks: PolicyCheck[] }> {
     const artifactId = `vstfs:///CodeReview/CodeReviewId/${projectId}/${prId}`;
     const url =
@@ -199,7 +203,7 @@ async function getChecks(
                 isEnabled: boolean;
                 isDeleted?: boolean;
                 type?: { id?: string; displayName?: string };
-                settings?: { displayName?: string; statusName?: string };
+                settings?: { displayName?: string; statusName?: string; requiredReviewerIds?: string[] };
             };
             context?: {
                 isExpired?: boolean;
@@ -208,6 +212,13 @@ async function getChecks(
         }>;
 
         const validStatuses = ['approved', 'rejected', 'running', 'queued', 'broken', 'notApplicable'];
+
+        // Build a lookup map of reviewer IDs to display names for
+        // resolving Required Reviewers policy entries.
+        const reviewerNamesById = new Map<string, string>();
+        for (const r of reviewers) {
+            reviewerNamesById.set(r.id.toLowerCase(), r.displayName);
+        }
 
         const checks: PolicyCheck[] = evaluations
             .filter((e) =>
@@ -228,11 +239,25 @@ async function getChecks(
                 status = 'broken';
             }
 
+            // For Required Reviewers policies, resolve the actual
+            // reviewer/team name from the PR's reviewers list.
+            let name = e.configuration.settings?.displayName
+                || e.configuration.settings?.statusName
+                || e.configuration.type?.displayName
+                || 'Policy check';
+
+            const typeId = normalizeGuid(e.configuration.type?.id ?? '');
+            if (typeId === REQUIRED_REVIEWERS_TYPE_ID && e.configuration.settings?.requiredReviewerIds?.length) {
+                const resolvedNames = e.configuration.settings.requiredReviewerIds
+                    .map((id) => reviewerNamesById.get(id.toLowerCase()))
+                    .filter((n): n is string => !!n);
+                if (resolvedNames.length > 0) {
+                    name = resolvedNames.join(', ');
+                }
+            }
+
             return {
-                name: e.configuration.settings?.displayName
-                    || e.configuration.settings?.statusName
-                    || e.configuration.type?.displayName
-                    || 'Policy check',
+                name,
                 status,
                 isBlocking: e.configuration.isBlocking,
             };
@@ -262,7 +287,7 @@ async function enrichPullRequests(
                     ? getUnresolvedCommentCount(org, project, repoId, pr.pullRequestId, token)
                     : Promise.resolve(0),
                 project && projectId
-                    ? getChecks(org, project, projectId, pr.pullRequestId, token)
+                    ? getChecks(org, project, projectId, pr.pullRequestId, token, pr.reviewers ?? [])
                     : Promise.resolve({ checksStatus: 'none' as const, checks: [] as PolicyCheck[] }),
             ]);
 
