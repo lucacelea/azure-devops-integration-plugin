@@ -16,6 +16,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Faster default polling interval**: reduced from 300 seconds (5 minutes) to 60 seconds (1 minute) for more responsive notifications. Configurable via `azureDevops.pullRequestRefreshInterval` (minimum 30 seconds).
 
+### Fixed
+
+- Fixed pull request template not working on Windows due to drive letter casing mismatch between `os.tmpdir()` and VS Code's URI normalization
+
 ## [0.2.2] - 2026-03-10
 
 ### Added

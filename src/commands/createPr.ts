@@ -45,6 +45,9 @@ async function editPullRequestDescription(template?: string): Promise<string> {
     await writeFile(tmpPath, template, 'utf-8');
 
     const tmpUri = vscode.Uri.file(tmpPath);
+    // Use the URI-normalized path for comparisons so that drive-letter
+    // casing differences on Windows (C:\ vs c:\) don't cause mismatches.
+    const normalizedPath = tmpUri.fsPath;
     const doc = await vscode.workspace.openTextDocument(tmpUri);
     await vscode.window.showTextDocument(doc);
 
@@ -56,7 +59,7 @@ async function editPullRequestDescription(template?: string): Promise<string> {
 
     // Auto-save on changes so closing the tab never prompts to save
     const changeDisposable = vscode.workspace.onDidChangeTextDocument((e) => {
-        if (e.document.uri.fsPath === tmpPath && e.contentChanges.length > 0) {
+        if (e.document.uri.fsPath === normalizedPath && e.contentChanges.length > 0) {
             latestContent = e.document.getText();
             e.document.save();
         }
@@ -67,7 +70,7 @@ async function editPullRequestDescription(template?: string): Promise<string> {
     return new Promise<string>((resolve) => {
         const tabDisposable = vscode.window.tabGroups.onDidChangeTabs(async (e) => {
             for (const tab of e.closed) {
-                if (tab.input instanceof vscode.TabInputText && tab.input.uri.fsPath === tmpPath) {
+                if (tab.input instanceof vscode.TabInputText && tab.input.uri.fsPath === normalizedPath) {
                     tabDisposable.dispose();
                     changeDisposable.dispose();
                     resolve(latestContent.trim() || '');
