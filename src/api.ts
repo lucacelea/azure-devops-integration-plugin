@@ -155,6 +155,13 @@ async function getUnresolvedCommentCount(
     }
 }
 
+// Well-known Azure DevOps policy type IDs for build/status checks.
+// Other policy types (reviewer count, merge strategy, etc.) are branch
+// policies rather than CI checks and should not appear in the tree.
+const BUILD_POLICY_TYPE_ID = '0609b952-1397-4640-95ec-e00a01b2c241';
+const STATUS_POLICY_TYPE_ID = 'cbdc66da-9728-4af8-aada-9a5a32e4a226';
+const CHECK_POLICY_TYPE_IDS = new Set([BUILD_POLICY_TYPE_ID, STATUS_POLICY_TYPE_ID]);
+
 async function getChecks(
     org: string,
     project: string,
@@ -175,15 +182,19 @@ async function getChecks(
                 isBlocking: boolean;
                 isEnabled: boolean;
                 isDeleted?: boolean;
-                type?: { displayName?: string };
-                settings?: { displayName?: string };
+                type?: { id?: string; displayName?: string };
+                settings?: { displayName?: string; statusName?: string };
             };
         }>;
 
         const checks: PolicyCheck[] = evaluations
-            .filter((e) => e.configuration.isEnabled && !e.configuration.isDeleted)
+            .filter((e) =>
+                e.configuration.isEnabled &&
+                !e.configuration.isDeleted &&
+                CHECK_POLICY_TYPE_IDS.has(e.configuration.type?.id ?? ''))
             .map((e) => ({
             name: e.configuration.settings?.displayName
+                || e.configuration.settings?.statusName
                 || e.configuration.type?.displayName
                 || 'Policy check',
             status: (['approved', 'rejected', 'running', 'queued', 'broken', 'notApplicable'].includes(e.status)
