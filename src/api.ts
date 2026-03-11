@@ -165,7 +165,7 @@ async function getChecks(
     const artifactId = `vstfs:///CodeReview/CodeReviewId/${projectId}/${prId}`;
     const url =
         `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}` +
-        `/_apis/policy/evaluations?artifactId=${encodeURIComponent(artifactId)}&api-version=7.1`;
+        `/_apis/policy/evaluations?artifactId=${encodeURIComponent(artifactId)}&api-version=7.1-preview.1`;
     try {
         const body = await httpsGet(url, authHeaders(token));
         const data = JSON.parse(body);
@@ -174,12 +174,15 @@ async function getChecks(
             configuration: {
                 isBlocking: boolean;
                 isEnabled: boolean;
+                isDeleted?: boolean;
                 type?: { displayName?: string };
                 settings?: { displayName?: string };
             };
         }>;
 
-        const checks: PolicyCheck[] = evaluations.map((e) => ({
+        const checks: PolicyCheck[] = evaluations
+            .filter((e) => e.configuration.isEnabled && !e.configuration.isDeleted)
+            .map((e) => ({
             name: e.configuration.settings?.displayName
                 || e.configuration.type?.displayName
                 || 'Policy check',
