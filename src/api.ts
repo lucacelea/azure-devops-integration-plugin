@@ -10,6 +10,7 @@ export interface PullRequest {
     status: string;
     isDraft: boolean;
     url: string;
+    mergeStatus?: string;
 }
 
 export interface PolicyCheck {
@@ -155,12 +156,26 @@ async function getUnresolvedCommentCount(
     }
 }
 
-// Well-known Azure DevOps policy type IDs for build/status checks.
-// Other policy types (reviewer count, merge strategy, etc.) are branch
-// policies rather than CI checks and should not appear in the tree.
-const BUILD_POLICY_TYPE_ID = '0609b952-1397-4640-95ec-e00a01b2c241';
-const STATUS_POLICY_TYPE_ID = 'cbdc66da-9728-4af8-aada-9a5a32e4a226';
-const CHECK_POLICY_TYPE_IDS = new Set([BUILD_POLICY_TYPE_ID, STATUS_POLICY_TYPE_ID]);
+// Well-known Azure DevOps policy type IDs that are NOT CI/status checks.
+// These are branch-level governance policies (reviewer requirements, merge
+// strategy) and should not appear as checks in the tree.
+const EXCLUDED_POLICY_TYPE_IDS = new Set([
+    'fa4e907d-c16b-4a4c-9dfa-4916e5d171ab', // Minimum number of reviewers
+    'fd2167ab-b0be-447a-8571-0615d2f67893', // Required reviewers
+    'fa4e907d-c16b-4a4c-9dfa-4906e5d171cb', // Merge strategy
+]);
+
+function computeChecksStatus(checks: PolicyCheck[]): EnrichedPullRequest['checksStatus'] {
+    const blocking = checks.filter((c) => c.isBlocking);
+    if (blocking.length === 0) {
+        return 'none';
+    } else if (blocking.some((c) => c.status === 'rejected' || c.status === 'broken')) {
+        return 'failed';
+    } else if (blocking.some((c) => c.status === 'running' || c.status === 'queued')) {
+        return 'running';
+    }
+    return 'passed';
+}
 
 async function getChecks(
     org: string,
@@ -185,35 +200,44 @@ async function getChecks(
                 type?: { id?: string; displayName?: string };
                 settings?: { displayName?: string; statusName?: string };
             };
+            context?: {
+                isExpired?: boolean;
+                buildId?: number;
+            };
         }>;
+
+        const validStatuses = ['approved', 'rejected', 'running', 'queued', 'broken', 'notApplicable'];
 
         const checks: PolicyCheck[] = evaluations
             .filter((e) =>
                 e.configuration.isEnabled &&
                 !e.configuration.isDeleted &&
-                CHECK_POLICY_TYPE_IDS.has(e.configuration.type?.id ?? ''))
-            .map((e) => ({
-            name: e.configuration.settings?.displayName
-                || e.configuration.settings?.statusName
-                || e.configuration.type?.displayName
-                || 'Policy check',
-            status: (['approved', 'rejected', 'running', 'queued', 'broken', 'notApplicable'].includes(e.status)
-                ? e.status
-                : 'notApplicable') as PolicyCheck['status'],
-            isBlocking: e.configuration.isBlocking,
-        }));
+                !EXCLUDED_POLICY_TYPE_IDS.has(e.configuration.type?.id ?? ''))
+            .map((e) => {
+            let status: PolicyCheck['status'];
+            if (validStatuses.includes(e.status)) {
+                status = e.status as PolicyCheck['status'];
+            } else {
+                status = 'notApplicable';
+            }
 
-        const blocking = checks.filter((c) => c.isBlocking);
-        let checksStatus: EnrichedPullRequest['checksStatus'];
-        if (blocking.length === 0) {
-            checksStatus = 'none';
-        } else if (blocking.some((c) => c.status === 'rejected' || c.status === 'broken')) {
-            checksStatus = 'failed';
-        } else if (blocking.some((c) => c.status === 'running' || c.status === 'queued')) {
-            checksStatus = 'running';
-        } else {
-            checksStatus = 'passed';
-        }
+            // Build policies may report "running" even after the build
+            // has finished when the evaluation itself is expired/stale.
+            if (status === 'running' && e.context?.isExpired) {
+                status = 'broken';
+            }
+
+            return {
+                name: e.configuration.settings?.displayName
+                    || e.configuration.settings?.statusName
+                    || e.configuration.type?.displayName
+                    || 'Policy check',
+                status,
+                isBlocking: e.configuration.isBlocking,
+            };
+        });
+
+        const checksStatus = computeChecksStatus(checks);
 
         return { checksStatus, checks };
     } catch {
@@ -241,7 +265,23 @@ async function enrichPullRequests(
                     : Promise.resolve({ checksStatus: 'none' as const, checks: [] as PolicyCheck[] }),
             ]);
 
-            return { ...pr, unresolvedCommentCount, checksStatus: checksResult.checksStatus, checks: checksResult.checks };
+            const checks = [...checksResult.checks];
+
+            // Add a synthetic check for merge conflicts based on the PR's
+            // mergeStatus field (this isn't a policy evaluation, but it's
+            // very useful to surface at a glance).
+            if (pr.mergeStatus === 'conflicts') {
+                checks.push({
+                    name: 'Merge Conflicts',
+                    status: 'rejected',
+                    isBlocking: true,
+                });
+            }
+
+            // Recalculate checksStatus including the synthetic check
+            const checksStatus = computeChecksStatus(checks);
+
+            return { ...pr, unresolvedCommentCount, checksStatus, checks };
         })
     );
 }
