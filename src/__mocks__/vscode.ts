@@ -44,10 +44,26 @@ class MockUri {
 }
 
 export const Uri = MockUri;
-export class TreeItem {}
+export class TreeItem {
+    label?: string;
+    collapsibleState?: TreeItemCollapsibleState;
+    description?: string;
+    tooltip?: any;
+    iconPath?: any;
+    contextValue?: string;
+    command?: any;
+    constructor(label: string, collapsibleState?: TreeItemCollapsibleState) {
+        this.label = label;
+        this.collapsibleState = collapsibleState;
+    }
+}
 export enum TreeItemCollapsibleState { None = 0, Collapsed = 1, Expanded = 2 }
 export class ThemeIcon { constructor(public id: string, public color?: any) {} }
 export class ThemeColor { constructor(public id: string) {} }
+export class MarkdownString {
+    value: string;
+    constructor(value?: string) { this.value = value ?? ''; }
+}
 export class EventEmitter { fire() {} event = () => {}; }
 export const window = { showErrorMessage: jest.fn(), showInformationMessage: jest.fn(), showInputBox: jest.fn() };
 export const workspace = {};

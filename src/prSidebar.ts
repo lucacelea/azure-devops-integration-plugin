@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { getOrganization } from './config';
 import { getToken } from './auth';
-import { getMyPullRequests, getUserId, EnrichedPullRequest, MyPullRequests } from './api';
+import { getMyPullRequests, getUserId, EnrichedPullRequest, MyPullRequests, PolicyCheck } from './api';
 
 export class PullRequestItem extends vscode.TreeItem {
     public children?: PullRequestItem[];
@@ -94,12 +94,6 @@ export class PullRequestItem extends vscode.TreeItem {
         const description = branch;
 
         // --- Tooltip: plain markdown (no codicons — they don't render reliably in tree tooltips) ---
-        const checksText =
-            pr.checksStatus === 'passed'  ? '\u2714 Checks: **passed**' :
-            pr.checksStatus === 'failed'  ? '\u2718 Checks: **failed**' :
-            pr.checksStatus === 'running' ? '\u25CB Checks: **running**' :
-            '\u2014 Checks: none';
-
         const commentsText = pr.unresolvedCommentCount > 0
             ? `\u25A0 Unresolved comments: **${pr.unresolvedCommentCount}**`
             : '\u2714 No unresolved comments';
@@ -127,7 +121,6 @@ export class PullRequestItem extends vscode.TreeItem {
             `Author: ${pr.createdBy.displayName}  \n` +
             `Branch: ${branch}\n\n` +
             `---\n\n` +
-            `${checksText}  \n` +
             `${commentsText}\n\n` +
             `---\n\n` +
             (reviewerLines.length > 0
@@ -135,8 +128,17 @@ export class PullRequestItem extends vscode.TreeItem {
                 : 'No reviewers assigned')
         );
 
+        // --- Build check children ---
+        const checks = pr.checks ?? [];
+        const checkChildren = checks.map((check) => PullRequestItem.fromCheck(check));
+
         // --- Assemble item ---
-        const item = new PullRequestItem(label, vscode.TreeItemCollapsibleState.None);
+        const hasChildren = checkChildren.length > 0;
+        const item = new PullRequestItem(
+            label,
+            hasChildren ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
+            hasChildren ? checkChildren : undefined
+        );
         item.description = description;
         item.tooltip = tooltip;
         item.iconPath = new vscode.ThemeIcon(iconId, iconColor);
@@ -149,6 +151,48 @@ export class PullRequestItem extends vscode.TreeItem {
 
         item.pr = pr;
         item.org = org;
+
+        return item;
+    }
+
+    static fromCheck(check: PolicyCheck): PullRequestItem {
+        let iconId: string;
+        let iconColor: vscode.ThemeColor | undefined;
+
+        switch (check.status) {
+            case 'approved':
+                iconId = 'pass';
+                iconColor = new vscode.ThemeColor('testing.iconPassed');
+                break;
+            case 'rejected':
+            case 'broken':
+                iconId = 'error';
+                iconColor = new vscode.ThemeColor('testing.iconFailed');
+                break;
+            case 'running':
+            case 'queued':
+                iconId = 'loading~spin';
+                iconColor = new vscode.ThemeColor('warningForeground');
+                break;
+            default:
+                iconId = 'circle-slash';
+                iconColor = new vscode.ThemeColor('disabledForeground');
+                break;
+        }
+
+        const statusLabel =
+            check.status === 'approved' ? 'Passed' :
+            check.status === 'rejected' || check.status === 'broken' ? 'Failed' :
+            check.status === 'running' || check.status === 'queued' ? 'Running' :
+            'N/A';
+
+        const item = new PullRequestItem(
+            check.name,
+            vscode.TreeItemCollapsibleState.None
+        );
+        item.description = statusLabel;
+        item.iconPath = new vscode.ThemeIcon(iconId, iconColor);
+        item.contextValue = 'policyCheck';
 
         return item;
     }

@@ -12,9 +12,16 @@ export interface PullRequest {
     url: string;
 }
 
+export interface PolicyCheck {
+    name: string;
+    status: 'approved' | 'rejected' | 'running' | 'queued' | 'broken' | 'notApplicable';
+    isBlocking: boolean;
+}
+
 export interface EnrichedPullRequest extends PullRequest {
     unresolvedCommentCount: number;
     checksStatus: 'passed' | 'failed' | 'running' | 'none';
+    checks: PolicyCheck[];
 }
 
 export interface PrChange {
@@ -148,13 +155,13 @@ async function getUnresolvedCommentCount(
     }
 }
 
-async function getChecksStatus(
+async function getChecks(
     org: string,
     project: string,
     projectId: string,
     prId: number,
     token: string
-): Promise<EnrichedPullRequest['checksStatus']> {
+): Promise<{ checksStatus: EnrichedPullRequest['checksStatus']; checks: PolicyCheck[] }> {
     const artifactId = `vstfs:///CodeReview/CodeReviewId/${projectId}/${prId}`;
     const url =
         `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}` +
@@ -164,21 +171,39 @@ async function getChecksStatus(
         const data = JSON.parse(body);
         const evaluations = data.value as Array<{
             status: string;
-            configuration: { isBlocking: boolean };
+            configuration: {
+                isBlocking: boolean;
+                isEnabled: boolean;
+                type?: { displayName?: string };
+                settings?: { displayName?: string };
+            };
         }>;
-        const blocking = evaluations.filter((e) => e.configuration.isBlocking);
+
+        const checks: PolicyCheck[] = evaluations.map((e) => ({
+            name: e.configuration.settings?.displayName
+                || e.configuration.type?.displayName
+                || 'Policy check',
+            status: (['approved', 'rejected', 'running', 'queued', 'broken', 'notApplicable'].includes(e.status)
+                ? e.status
+                : 'running') as PolicyCheck['status'],
+            isBlocking: e.configuration.isBlocking,
+        }));
+
+        const blocking = checks.filter((c) => c.isBlocking);
+        let checksStatus: EnrichedPullRequest['checksStatus'];
         if (blocking.length === 0) {
-            return 'none';
+            checksStatus = 'none';
+        } else if (blocking.some((c) => c.status === 'rejected' || c.status === 'broken')) {
+            checksStatus = 'failed';
+        } else if (blocking.some((c) => c.status === 'running' || c.status === 'queued')) {
+            checksStatus = 'running';
+        } else {
+            checksStatus = 'passed';
         }
-        if (blocking.some((e) => e.status === 'rejected' || e.status === 'broken')) {
-            return 'failed';
-        }
-        if (blocking.some((e) => e.status === 'running' || e.status === 'queued')) {
-            return 'running';
-        }
-        return 'passed';
+
+        return { checksStatus, checks };
     } catch {
-        return 'none';
+        return { checksStatus: 'none', checks: [] };
     }
 }
 
@@ -193,16 +218,16 @@ async function enrichPullRequests(
             const projectId = pr.repository?.project?.id ?? '';
             const repoId = pr.repository?.id ?? '';
 
-            const [unresolvedCommentCount, checksStatus] = await Promise.all([
+            const [unresolvedCommentCount, checksResult] = await Promise.all([
                 project && repoId
                     ? getUnresolvedCommentCount(org, project, repoId, pr.pullRequestId, token)
                     : Promise.resolve(0),
                 project && projectId
-                    ? getChecksStatus(org, project, projectId, pr.pullRequestId, token)
-                    : Promise.resolve('none' as const),
+                    ? getChecks(org, project, projectId, pr.pullRequestId, token)
+                    : Promise.resolve({ checksStatus: 'none' as const, checks: [] as PolicyCheck[] }),
             ]);
 
-            return { ...pr, unresolvedCommentCount, checksStatus };
+            return { ...pr, unresolvedCommentCount, checksStatus: checksResult.checksStatus, checks: checksResult.checks };
         })
     );
 }
