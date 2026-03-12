@@ -52,8 +52,8 @@ export class TreeItem {
     iconPath?: any;
     contextValue?: string;
     command?: any;
-    constructor(label: string, collapsibleState?: TreeItemCollapsibleState) {
-        this.label = label;
+    constructor(label?: string, collapsibleState?: TreeItemCollapsibleState) {
+        if (typeof label === 'string') { this.label = label; }
         this.collapsibleState = collapsibleState;
     }
 }
@@ -65,7 +65,7 @@ export class MarkdownString {
     constructor(value?: string) { this.value = value ?? ''; }
 }
 export class EventEmitter { fire() {} event = () => {}; }
-export const window = { showErrorMessage: jest.fn(), showInformationMessage: jest.fn(), showInputBox: jest.fn() };
-export const workspace = {};
+export const window = { showErrorMessage: jest.fn(), showInformationMessage: jest.fn(), showInputBox: jest.fn(), showTextDocument: jest.fn() };
+export const workspace = { openTextDocument: jest.fn() };
 export const commands = {};
 export const env = {};

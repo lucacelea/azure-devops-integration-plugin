@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { EnrichedPullRequest, PrThread, getPrThreads, getPrIterations, replyToThread, addPullRequestComment } from './api';
 import { getToken } from './auth';
 import { buildPrFileUri } from './prContentProvider';
+import { setCommentContent, buildCommentDocUri, clearCommentContent } from './prCommentDocProvider';
 
 type DiscussionTreeItem = PrDiscussionItem | PrDiscussionReplyItem;
 
@@ -10,12 +11,18 @@ export class PrDiscussionReplyItem extends vscode.TreeItem {
         public readonly author: string,
         public readonly content: string,
         public readonly date: string,
+        parentItem: PrDiscussionItem,
     ) {
         super(author, vscode.TreeItemCollapsibleState.None);
         const preview = content.replaceAll('\n', ' ').slice(0, 100);
         this.description = preview;
         this.tooltip = new vscode.MarkdownString(`**${author}**\n\n${content}`);
         this.iconPath = new vscode.ThemeIcon('comment');
+        this.command = {
+            command: 'azureDevops.openDiscussionComment',
+            title: 'Open Comment',
+            arguments: [parentItem],
+        };
     }
 }
 
@@ -66,7 +73,7 @@ export class PrDiscussionItem extends vscode.TreeItem {
 
         // Build reply items for children
         this.replyItems = userComments.slice(1).map((c) =>
-            new PrDiscussionReplyItem(c.author.displayName, c.content, c.publishedDate)
+            new PrDiscussionReplyItem(c.author.displayName, c.content, c.publishedDate, this)
         );
 
         // Icon
@@ -91,8 +98,8 @@ export class PrDiscussionItem extends vscode.TreeItem {
 
         this.contextValue = 'discussionThread';
 
-        // Click to open the diff at the comment's file/line (file comments only)
-        if (filePath && sourceCommitId && targetCommitId) {
+        // Click to open the diff (file comments) or the full comment (general comments)
+        if (isGeneral || (filePath && sourceCommitId && targetCommitId)) {
             this.command = {
                 command: 'azureDevops.openDiscussionComment',
                 title: 'Open Comment',
@@ -127,6 +134,7 @@ export class PrDiscussionProvider implements vscode.TreeDataProvider<DiscussionT
     clear(): void {
         this.selectedPr = undefined;
         this.selectedOrg = undefined;
+        clearCommentContent();
         this._onDidChangeTreeData.fire();
     }
 
@@ -224,10 +232,12 @@ export class PrDiscussionProvider implements vscode.TreeDataProvider<DiscussionT
         this.refresh();
     }
 
-    /** Open a diff at the comment's file and line. */
+    /** Open a diff at the comment's file and line, or show full text for general comments. */
     async openComment(item: PrDiscussionItem): Promise<void> {
         const ctx = item.thread.threadContext;
-        if (!ctx?.filePath) { return; }
+        if (!ctx?.filePath) {
+            return this.showFullComment(item);
+        }
 
         const filePath = ctx.filePath;
         const isRight = !!ctx.rightFileStart;
@@ -255,5 +265,30 @@ export class PrDiscussionProvider implements vscode.TreeDataProvider<DiscussionT
                 }
             }, 300);
         }
+    }
+
+    /** Open a read-only markdown document showing the full discussion thread. */
+    private async showFullComment(item: PrDiscussionItem): Promise<void> {
+        const userComments = item.thread.comments.filter(
+            (c) => !c.isDeleted && c.commentType !== 'system'
+        );
+        if (userComments.length === 0) { return; }
+
+        const lines: string[] = [];
+        for (const comment of userComments) {
+            lines.push(`**${comment.author.displayName}**`);
+            lines.push('');
+            lines.push(comment.content);
+            lines.push('\n---\n');
+        }
+        // Remove trailing separator
+        lines.pop();
+
+        const markdown = lines.join('\n');
+        setCommentContent(item.thread.id, markdown);
+
+        const uri = buildCommentDocUri(item.thread.id);
+        const doc = await vscode.workspace.openTextDocument(uri);
+        await vscode.window.showTextDocument(doc, { preview: true });
     }
 }

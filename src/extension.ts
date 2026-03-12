@@ -11,6 +11,7 @@ import { PrChangesProvider, PrFileItem } from './prChangesProvider';
 import { PrContentProvider, buildPrFileUri } from './prContentProvider';
 import { PrCommentController } from './prComments';
 import { PrDiscussionProvider, PrDiscussionItem } from './prDiscussionProvider';
+import { PrCommentDocProvider, PR_COMMENT_SCHEME } from './prCommentDocProvider';
 
 export function activate(context: vscode.ExtensionContext) {
     const secretStorage = context.secrets;
@@ -77,6 +78,11 @@ export function activate(context: vscode.ExtensionContext) {
     const prContentProvider = new PrContentProvider(secretStorage);
     context.subscriptions.push(
         vscode.workspace.registerTextDocumentContentProvider('azuredevops-pr', prContentProvider)
+    );
+
+    // PR comment content provider — shows full discussion threads as markdown
+    context.subscriptions.push(
+        vscode.workspace.registerTextDocumentContentProvider(PR_COMMENT_SCHEME, new PrCommentDocProvider())
     );
 
     // PR comment controller — shows Azure DevOps threads on diff views
