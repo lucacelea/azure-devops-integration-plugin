@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Contribution guide
+    url: https://github.com/lucacelea/azure-devops-integration-plugin/blob/main/CONTRIBUTING.md
+    about: Read the contribution and release workflow before opening a pull request.

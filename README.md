@@ -97,6 +97,46 @@ All settings are optional — the extension auto-detects values from your git re
 - VS Code 1.85.0 or later
 - An Azure DevOps account with a Personal Access Token
 
+## Development
+
+### CI checks
+
+GitHub Actions runs `compile`, `lint`, and `test` on every pull request and on pushes to `main`.
+
+### Releases
+
+Releases are published from GitHub Actions when you push a version tag:
+
+1. Update `package.json` and `CHANGELOG.md`
+2. Commit and push to `main`
+3. Create and push a tag that matches the package version, for example `v0.3.0`
+
+The release workflow will:
+
+- verify the tag matches `package.json`
+- run compile, lint, and tests
+- build a `.vsix`
+- publish the extension to the Visual Studio Marketplace
+- upload the `.vsix` to the GitHub Actions run and the GitHub release
+
+Required GitHub secret:
+
+- `VSCE_PAT`: Visual Studio Marketplace personal access token for the `lucacelea` publisher
+
+### Branch protection
+
+In GitHub repository settings, protect `main` and require the `Build and Test` status check before merging pull requests.
+
+Recommended settings:
+
+- require pull requests before merging
+- require status checks to pass before merging
+- select the `Build and Test` check from the `CI` workflow
+- require branches to be up to date before merging
+- restrict direct pushes to `main`
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the local development and PR flow.
+
 ## License
 
 [MIT](LICENSE)
