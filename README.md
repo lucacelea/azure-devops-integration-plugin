@@ -21,7 +21,7 @@ Each PR displays rich status information:
 - Check status (Passed / Failed / Running)
 - Unresolved comment count
 
-Click any PR to open it in Azure DevOps.
+Click any PR to open its changes in VS Code. Use the context menu to open the PR in Azure DevOps when needed.
 
 ### Work Item Detection
 
@@ -51,7 +51,7 @@ Open the Command Palette (`Cmd+Shift+P`) and type "Azure DevOps" to access:
 
 ### 1. Install the Extension
 
-Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=lucac.azure-devops-integration) or search for "Azure DevOps Integration" in the Extensions view.
+Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=lucacelea.azure-devops-integration) or search for "Azure DevOps Integration" in the Extensions view.
 
 ### 2. Set Up Authentication
 
@@ -85,6 +85,10 @@ All settings are optional — the extension auto-detects values from your git re
 | `azureDevops.branchPrefix` | `""` | Personal branch prefix to strip (e.g., `lucac/`) |
 | `azureDevops.workItemPattern` | Built-in patterns | Custom regex to extract work item ID from branch name |
 | `azureDevops.pullRequestLinkedWorkItemState` | `""` | Optional state to set on linked work item when creating a PR (leave empty to disable) |
+| `azureDevops.pullRequestAutoComplete` | `false` | Automatically set auto-complete on newly created pull requests |
+| `azureDevops.pullRequestMergeStrategy` | `squash` | Merge strategy to use when auto-completing a pull request |
+| `azureDevops.pullRequestDeleteSourceBranch` | `true` | Delete the source branch after merge when auto-complete is set |
+| `azureDevops.pullRequestCompleteWorkItems` | `true` | Complete associated work items after merge when auto-complete is set |
 | `azureDevops.showAssignedWorkItems` | `true` | Show a work item picker during PR creation to select assigned work items to link |
 | `azureDevops.pullRequestRefreshInterval` | `60` | Auto-refresh interval in seconds (minimum 30) |
 

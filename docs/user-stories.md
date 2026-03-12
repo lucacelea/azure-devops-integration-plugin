@@ -121,13 +121,14 @@
 ### US-3.2: Open a pull request from the sidebar
 
 **As a** developer,
-**I want to** click on a pull request in the sidebar to open it in Azure DevOps,
-**so that** I can quickly review or take action on it.
+**I want to** click on a pull request in the sidebar to open its changes in VS Code,
+**so that** I can quickly review and act on it without leaving the editor.
 
 **Acceptance Criteria:**
 
-- Clicking a PR item in the tree view opens the PR page in the browser: `https://dev.azure.com/{org}/{project}/_git/{repo}/pullrequest/{prId}`.
-- The URL uses the correct repository for the PR (which may differ from the currently open repo).
+- Clicking a PR item in the tree view opens the PR changes view in VS Code.
+- A context menu action is available to open the PR page in the browser: `https://dev.azure.com/{org}/{project}/_git/{repo}/pullrequest/{prId}`.
+- The browser URL uses the correct repository for the PR (which may differ from the currently open repo).
 
 ---
 

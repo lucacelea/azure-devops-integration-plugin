@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-03-12
+
 ### Added
 
 - **Background notifications for new PR comments**: automatically notifies when new unresolved comments appear on your pull requests, even when the sidebar panel is closed or VS Code is minimized. Tracks unresolved comment counts across polling cycles and shows native notifications when counts increase.
