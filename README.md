@@ -21,7 +21,7 @@ Each PR displays rich status information:
 - Check status (Passed / Failed / Running)
 - Unresolved comment count
 
-Click any PR to open it in Azure DevOps.
+Click any PR to open its changes in VS Code. Use the context menu to open the PR in Azure DevOps when needed.
 
 ### Work Item Detection
 
@@ -51,7 +51,7 @@ Open the Command Palette (`Cmd+Shift+P`) and type "Azure DevOps" to access:
 
 ### 1. Install the Extension
 
-Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=lucac.azure-devops-integration) or search for "Azure DevOps Integration" in the Extensions view.
+Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=lucacelea.azure-devops-integration) or search for "Azure DevOps Integration" in the Extensions view.
 
 ### 2. Set Up Authentication
 
@@ -85,6 +85,10 @@ All settings are optional — the extension auto-detects values from your git re
 | `azureDevops.branchPrefix` | `""` | Personal branch prefix to strip (e.g., `lucac/`) |
 | `azureDevops.workItemPattern` | Built-in patterns | Custom regex to extract work item ID from branch name |
 | `azureDevops.pullRequestLinkedWorkItemState` | `""` | Optional state to set on linked work item when creating a PR (leave empty to disable) |
+| `azureDevops.pullRequestAutoComplete` | `false` | Automatically set auto-complete on newly created pull requests |
+| `azureDevops.pullRequestMergeStrategy` | `squash` | Merge strategy to use when auto-completing a pull request |
+| `azureDevops.pullRequestDeleteSourceBranch` | `true` | Delete the source branch after merge when auto-complete is set |
+| `azureDevops.pullRequestCompleteWorkItems` | `true` | Complete associated work items after merge when auto-complete is set |
 | `azureDevops.showAssignedWorkItems` | `true` | Show a work item picker during PR creation to select assigned work items to link |
 | `azureDevops.pullRequestRefreshInterval` | `60` | Auto-refresh interval in seconds (minimum 30) |
 
@@ -92,6 +96,46 @@ All settings are optional — the extension auto-detects values from your git re
 
 - VS Code 1.85.0 or later
 - An Azure DevOps account with a Personal Access Token
+
+## Development
+
+### CI checks
+
+GitHub Actions runs `compile`, `lint`, and `test` on every pull request and on pushes to `main`.
+
+### Releases
+
+Releases are published from GitHub Actions when you push a version tag:
+
+1. Update `package.json` and `CHANGELOG.md`
+2. Commit and push to `main`
+3. Create and push a tag that matches the package version, for example `v0.3.0`
+
+The release workflow will:
+
+- verify the tag matches `package.json`
+- run compile, lint, and tests
+- build a `.vsix`
+- publish the extension to the Visual Studio Marketplace
+- upload the `.vsix` to the GitHub Actions run and the GitHub release
+
+Required GitHub secret:
+
+- `VSCE_PAT`: Visual Studio Marketplace personal access token for the `lucacelea` publisher
+
+### Branch protection
+
+In GitHub repository settings, protect `main` and require the `Build and Test` status check before merging pull requests.
+
+Recommended settings:
+
+- require pull requests before merging
+- require status checks to pass before merging
+- select the `Build and Test` check from the `CI` workflow
+- require branches to be up to date before merging
+- restrict direct pushes to `main`
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the local development and PR flow.
 
 ## License
 

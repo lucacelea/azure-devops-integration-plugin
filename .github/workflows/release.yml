@@ -1,0 +1,79 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Package and Publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Read package version
+        id: version
+        run: echo "value=$(node -p 'require(\"./package.json\").version')" >> "$GITHUB_OUTPUT"
+
+      - name: Verify tag matches package version
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+          PACKAGE_VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          if [ "$TAG_NAME" != "v$PACKAGE_VERSION" ]; then
+            echo "Tag $TAG_NAME does not match package.json version v$PACKAGE_VERSION"
+            exit 1
+          fi
+
+      - name: Compile
+        run: npm run compile
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test -- --runInBand
+
+      - name: Package VSIX
+        env:
+          PACKAGE_VERSION: ${{ steps.version.outputs.value }}
+        run: npx -y @vscode/vsce@3.6.2 package --out "azure-devops-integration-${PACKAGE_VERSION}.vsix"
+
+      - name: Publish to Visual Studio Marketplace
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: npx -y @vscode/vsce@3.6.2 publish -p "$VSCE_PAT" --packagePath "azure-devops-integration-${{ steps.version.outputs.value }}.vsix"
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: azure-devops-integration-${{ steps.version.outputs.value }}
+          path: azure-devops-integration-${{ steps.version.outputs.value }}.vsix
+
+      - name: Create or update GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.ref_name }}
+          VSIX_PATH: azure-devops-integration-${{ steps.version.outputs.value }}.vsix
+        run: |
+          gh release view "$TAG_NAME" >/dev/null 2>&1 || gh release create "$TAG_NAME" --title "$TAG_NAME" --generate-notes
+          gh release upload "$TAG_NAME" "$VSIX_PATH" --clobber
