@@ -304,6 +304,14 @@ export class PullRequestTreeProvider implements vscode.TreeDataProvider<PullRequ
         this.previousCommentCounts = newCounts;
         this.initialized = true;
 
+        const notificationsEnabled = vscode.workspace
+            .getConfiguration('azureDevops')
+            .get<boolean>('enableNotifications', true);
+
+        if (!notificationsEnabled) {
+            return;
+        }
+
         if (prsWithNewComments.length === 1) {
             const pr = prsWithNewComments[0];
             vscode.window.showInformationMessage(

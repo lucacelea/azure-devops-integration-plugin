@@ -368,6 +368,11 @@
           "type": "boolean",
           "default": true,
           "description": "Show a work item picker during pull request creation, allowing you to select work items assigned to you to link to the PR. Items from the branch name are pre-selected."
+        },
+        "azureDevops.enableNotifications": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable desktop notifications for new unresolved comments on pull requests."
         }
       }
     }

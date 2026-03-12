@@ -115,4 +115,35 @@ describe('PullRequestTreeProvider.checkForNewComments', () => {
 
         expect(showInfoMock).not.toHaveBeenCalled();
     });
+
+    it('does not notify when enableNotifications is false', () => {
+        const getConfigMock = vscode.workspace.getConfiguration as jest.Mock;
+        getConfigMock.mockReturnValue({
+            get: jest.fn().mockReturnValue(false),
+        });
+
+        const prs = [makePr(1, 'My PR', 2)];
+        provider.checkForNewComments(prs);
+
+        const updated = [makePr(1, 'My PR', 4)];
+        provider.checkForNewComments(updated);
+
+        expect(showInfoMock).not.toHaveBeenCalled();
+    });
+
+    it('notifies when enableNotifications is true', () => {
+        const getConfigMock = vscode.workspace.getConfiguration as jest.Mock;
+        getConfigMock.mockReturnValue({
+            get: jest.fn().mockReturnValue(true),
+        });
+
+        const prs = [makePr(1, 'My PR', 2)];
+        provider.checkForNewComments(prs);
+
+        const updated = [makePr(1, 'My PR', 4)];
+        provider.checkForNewComments(updated);
+
+        expect(showInfoMock).toHaveBeenCalledTimes(1);
+        expect(showInfoMock).toHaveBeenCalledWith('New unresolved comments on PR #1: My PR');
+    });
 });
