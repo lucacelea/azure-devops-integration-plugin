@@ -32,7 +32,13 @@ jobs:
 
       - name: Read package version
         id: version
-        run: echo "value=$(node -p 'require(\"./package.json\").version')" >> "$GITHUB_OUTPUT"
+        run: |
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          if [ -z "$PACKAGE_VERSION" ]; then
+            echo "Failed to read package version from package.json"
+            exit 1
+          fi
+          echo "value=$PACKAGE_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Verify tag matches package version
         env:
