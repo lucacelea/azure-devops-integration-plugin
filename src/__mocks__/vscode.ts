@@ -66,6 +66,11 @@ export class MarkdownString {
 }
 export class EventEmitter { fire() {} event = () => {}; }
 export const window = { showErrorMessage: jest.fn(), showInformationMessage: jest.fn(), showInputBox: jest.fn(), showTextDocument: jest.fn() };
-export const workspace = { openTextDocument: jest.fn() };
+export const workspace = {
+    openTextDocument: jest.fn(),
+    getConfiguration: jest.fn().mockReturnValue({
+        get: jest.fn().mockImplementation((_key: string, defaultValue?: unknown) => defaultValue),
+    }),
+};
 export const commands = {};
 export const env = {};
