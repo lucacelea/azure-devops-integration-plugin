@@ -36,6 +36,19 @@ async function getPullRequestTemplate(): Promise<string | undefined> {
     return undefined;
 }
 
+export function appendWorkItemsToTemplate(template: string | undefined, workItemIds: number[]): string | undefined {
+    if (workItemIds.length === 0) {
+        return template;
+    }
+
+    const workItemSection = workItemIds.map(id => `#${id}`).join('\n');
+    if (!template) {
+        return workItemSection;
+    }
+
+    return `${template.trimEnd()}\n\n${workItemSection}`;
+}
+
 async function editPullRequestDescription(template?: string): Promise<string> {
     if (!template) {
         return '';
@@ -189,7 +202,8 @@ export async function createPullRequest(secretStorage: vscode.SecretStorage): Pr
         }
 
         const template = await getPullRequestTemplate();
-        const description = await editPullRequestDescription(template);
+        const templateWithWorkItems = appendWorkItemsToTemplate(template, selectedWorkItemIds);
+        const description = await editPullRequestDescription(templateWithWorkItems);
 
         // Create via API
         const pr = await vscode.window.withProgress(
