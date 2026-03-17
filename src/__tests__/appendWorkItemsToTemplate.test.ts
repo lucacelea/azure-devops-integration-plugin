@@ -10,29 +10,31 @@ describe('appendWorkItemsToTemplate', () => {
         expect(appendWorkItemsToTemplate(template, [])).toBe(template);
     });
 
-    it('returns only work item references when template is undefined', () => {
-        expect(appendWorkItemsToTemplate(undefined, [181406])).toBe('#181406');
+    it('returns only work item title when template is undefined', () => {
+        expect(appendWorkItemsToTemplate(undefined, ['Fix login button styling'])).toBe('Fix login button styling');
     });
 
-    it('returns multiple work item references when template is undefined', () => {
-        expect(appendWorkItemsToTemplate(undefined, [181406, 181407])).toBe('#181406\n#181407');
+    it('returns multiple work item titles when template is undefined', () => {
+        expect(appendWorkItemsToTemplate(undefined, ['Fix login button styling', 'Update dashboard layout'])).toBe(
+            'Fix login button styling\nUpdate dashboard layout'
+        );
     });
 
-    it('appends work items to the bottom of the template', () => {
+    it('appends work item title to the bottom of the template', () => {
         const template = '## Description\n\nPlease describe your changes.';
-        const result = appendWorkItemsToTemplate(template, [181406]);
-        expect(result).toBe('## Description\n\nPlease describe your changes.\n\n#181406');
+        const result = appendWorkItemsToTemplate(template, ['Fix login button styling']);
+        expect(result).toBe('## Description\n\nPlease describe your changes.\n\nFix login button styling');
     });
 
-    it('appends multiple work items to the bottom of the template', () => {
+    it('appends multiple work item titles to the bottom of the template', () => {
         const template = '## Description\n\nPlease describe your changes.';
-        const result = appendWorkItemsToTemplate(template, [181406, 181407, 181408]);
-        expect(result).toBe('## Description\n\nPlease describe your changes.\n\n#181406\n#181407\n#181408');
+        const result = appendWorkItemsToTemplate(template, ['Fix login button styling', 'Update dashboard layout', 'Add error handling']);
+        expect(result).toBe('## Description\n\nPlease describe your changes.\n\nFix login button styling\nUpdate dashboard layout\nAdd error handling');
     });
 
     it('trims trailing whitespace from template before appending', () => {
         const template = '## Description\n\nPlease describe your changes.\n\n';
-        const result = appendWorkItemsToTemplate(template, [181406]);
-        expect(result).toBe('## Description\n\nPlease describe your changes.\n\n#181406');
+        const result = appendWorkItemsToTemplate(template, ['Fix login button styling']);
+        expect(result).toBe('## Description\n\nPlease describe your changes.\n\nFix login button styling');
     });
 });

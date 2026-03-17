@@ -36,12 +36,12 @@ async function getPullRequestTemplate(): Promise<string | undefined> {
     return undefined;
 }
 
-export function appendWorkItemsToTemplate(template: string | undefined, workItemIds: number[]): string | undefined {
-    if (workItemIds.length === 0) {
+export function appendWorkItemsToTemplate(template: string | undefined, workItemTitles: string[]): string | undefined {
+    if (workItemTitles.length === 0) {
         return template;
     }
 
-    const workItemSection = workItemIds.map(id => `#${id}`).join('\n');
+    const workItemSection = workItemTitles.join('\n');
     if (!template) {
         return workItemSection;
     }
@@ -164,6 +164,7 @@ export async function createPullRequest(secretStorage: vscode.SecretStorage): Pr
 
         // Work item selection
         let selectedWorkItemIds: number[] = hasValidWorkItemId ? [parsedWorkItemId] : [];
+        let selectedWorkItemTitles: string[] = [];
         let workItemProject: string | undefined;
 
         const showWorkItemPicker = vscode.workspace
@@ -184,6 +185,7 @@ export async function createPullRequest(secretStorage: vscode.SecretStorage): Pr
                         description: `${wi.type} · ${wi.state}`,
                         picked: selectedWorkItemIds.includes(wi.id),
                         workItemId: wi.id,
+                        workItemTitle: wi.title,
                     }));
 
                     const selected = await vscode.window.showQuickPick(quickPickItems, {
@@ -193,6 +195,7 @@ export async function createPullRequest(secretStorage: vscode.SecretStorage): Pr
 
                     if (selected === undefined) { return; }
                     selectedWorkItemIds = selected.map((s: { workItemId: number }) => s.workItemId);
+                    selectedWorkItemTitles = selected.map((s: { workItemTitle: string }) => s.workItemTitle);
                 }
             } catch (error) {
                 vscode.window.showWarningMessage(
@@ -202,7 +205,7 @@ export async function createPullRequest(secretStorage: vscode.SecretStorage): Pr
         }
 
         const template = await getPullRequestTemplate();
-        const templateWithWorkItems = appendWorkItemsToTemplate(template, selectedWorkItemIds);
+        const templateWithWorkItems = appendWorkItemsToTemplate(template, selectedWorkItemTitles);
         const description = await editPullRequestDescription(templateWithWorkItems);
 
         // Create via API
