@@ -36,6 +36,19 @@ async function getPullRequestTemplate(): Promise<string | undefined> {
     return undefined;
 }
 
+export function appendWorkItemsToTemplate(template: string | undefined, workItemTitles: string[]): string | undefined {
+    if (workItemTitles.length === 0) {
+        return template;
+    }
+
+    const workItemSection = workItemTitles.join('\n');
+    if (!template) {
+        return workItemSection;
+    }
+
+    return `${template.trimEnd()}\n\n${workItemSection}`;
+}
+
 async function editPullRequestDescription(template?: string): Promise<string> {
     if (!template) {
         return '';
@@ -151,6 +164,7 @@ export async function createPullRequest(secretStorage: vscode.SecretStorage): Pr
 
         // Work item selection
         let selectedWorkItemIds: number[] = hasValidWorkItemId ? [parsedWorkItemId] : [];
+        let selectedWorkItemTitles: string[] = [];
         let workItemProject: string | undefined;
 
         const showWorkItemPicker = vscode.workspace
@@ -171,6 +185,7 @@ export async function createPullRequest(secretStorage: vscode.SecretStorage): Pr
                         description: `${wi.type} · ${wi.state}`,
                         picked: selectedWorkItemIds.includes(wi.id),
                         workItemId: wi.id,
+                        workItemTitle: wi.title,
                     }));
 
                     const selected = await vscode.window.showQuickPick(quickPickItems, {
@@ -180,6 +195,7 @@ export async function createPullRequest(secretStorage: vscode.SecretStorage): Pr
 
                     if (selected === undefined) { return; }
                     selectedWorkItemIds = selected.map((s: { workItemId: number }) => s.workItemId);
+                    selectedWorkItemTitles = selected.map((s: { workItemTitle: string }) => s.workItemTitle);
                 }
             } catch (error) {
                 vscode.window.showWarningMessage(
@@ -189,7 +205,8 @@ export async function createPullRequest(secretStorage: vscode.SecretStorage): Pr
         }
 
         const template = await getPullRequestTemplate();
-        const description = await editPullRequestDescription(template);
+        const templateWithWorkItems = appendWorkItemsToTemplate(template, selectedWorkItemTitles);
+        const description = await editPullRequestDescription(templateWithWorkItems);
 
         // Create via API
         const pr = await vscode.window.withProgress(

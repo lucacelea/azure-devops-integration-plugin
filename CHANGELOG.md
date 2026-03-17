@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Work item titles auto-appended to PR description**: when creating a pull request, selected work item titles are automatically appended at the bottom of the PR description template, giving reviewers quick context about related work.
+
 ## [0.3.0] - 2026-03-12
 
 ### Added
