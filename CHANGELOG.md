@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Work items auto-appended to PR description**: when creating a pull request, selected work items are automatically added as `#workItemId` references at the bottom of the PR description template. Azure DevOps auto-links these references, making it easy to trace PRs back to work items directly from the description.
+
 ## [0.3.0] - 2026-03-12
 
 ### Added
