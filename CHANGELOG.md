@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - **Work item titles auto-appended to PR description**: when creating a pull request, selected work item titles are automatically appended at the bottom of the PR description template, giving reviewers quick context about related work.
+- **Notifications can now be toggled on or off**: in the configuration, you can now enable or disable notifications for new PR comments.
 
 ## [0.3.0] - 2026-03-12
 
