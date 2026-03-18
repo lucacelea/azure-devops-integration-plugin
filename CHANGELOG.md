@@ -4,6 +4,14 @@ All notable changes to the "Azure DevOps Integration" extension will be document
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.0] - 2026-03-18
+
+### Added
+
+- **"Copy URL" for pull requests**: a "Copy URL" action is now shown after PR creation. By default, it copies a plain URL to the clipboard.
+  - Set `azureDevops.richCopyUrl` to `true` to copy a rich-text hyperlink instead (e.g. "Pull Request 33416: Export identity"), so that pasting into rich-text editors like Azure DevOps, Teams, or Outlook produces a clickable link followed by the title — matching Azure DevOps' native format.
+- **Auto-open PR in browser**: new `azureDevops.pullRequestAutoOpenInBrowser` setting to automatically open the pull request in the browser after creation, removing the need to click "Open in Browser" each time.
+
 ## [0.4.0] - 2026-03-17
 
 ### Added

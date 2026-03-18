@@ -345,7 +345,12 @@
         "azureDevops.pullRequestMergeStrategy": {
           "type": "string",
           "default": "squash",
-          "enum": ["noFastForward", "squash", "rebase", "rebaseMerge"],
+          "enum": [
+            "noFastForward",
+            "squash",
+            "rebase",
+            "rebaseMerge"
+          ],
           "enumDescriptions": [
             "Merge (no fast-forward)",
             "Squash commit",
@@ -373,6 +378,11 @@
           "type": "boolean",
           "default": false,
           "description": "Automatically open the pull request in the browser after creation."
+        },
+        "azureDevops.richCopyUrl": {
+          "type": "boolean",
+          "default": false,
+          "description": "Copy rich link with PR title to clipboard when copying pull request URL."
         },
         "azureDevops.enableNotifications": {
           "type": "boolean",

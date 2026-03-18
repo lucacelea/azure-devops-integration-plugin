@@ -437,12 +437,19 @@ export async function createPullRequest(
       "Copy URL",
       "Open in Browser",
     );
+    const richCopy = vscode.workspace
+      .getConfiguration("azureDevops")
+      .get<boolean>("richCopyUrl", false);
     if (action === "Copy URL") {
-      await copyRichLink(
-        prUrl,
-        `Pull Request ${pr.pullRequestId}`,
-        `: ${title}`,
-      );
+      if (richCopy) {
+        await copyRichLink(
+          prUrl,
+          `Pull Request ${pr.pullRequestId}`,
+          `: ${title}`,
+        );
+      } else {
+        await vscode.env.clipboard.writeText(prUrl);
+      }
       vscode.window.showInformationMessage("PR URL copied to clipboard.");
     } else if (action === "Open in Browser") {
       await vscode.env.openExternal(vscode.Uri.parse(prUrl));
