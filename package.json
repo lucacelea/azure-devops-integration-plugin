@@ -2,7 +2,7 @@
   "name": "azure-devops-integration",
   "displayName": "Azure DevOps Integration",
   "description": "A VS Code extension for Azure DevOps. Browse pull requests in a sidebar grouped by Created by me, Assigned to me, and My teams, with review, check, and comment status. Auto-detects config from git remotes and extracts work item IDs from branch names. Create PRs, open repos, and link work items.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "publisher": "lucacelea",
   "license": "MIT",
   "icon": "icon.png",
@@ -345,7 +345,12 @@
         "azureDevops.pullRequestMergeStrategy": {
           "type": "string",
           "default": "squash",
-          "enum": ["noFastForward", "squash", "rebase", "rebaseMerge"],
+          "enum": [
+            "noFastForward",
+            "squash",
+            "rebase",
+            "rebaseMerge"
+          ],
           "enumDescriptions": [
             "Merge (no fast-forward)",
             "Squash commit",
@@ -368,6 +373,16 @@
           "type": "boolean",
           "default": true,
           "description": "Show a work item picker during pull request creation, allowing you to select work items assigned to you to link to the PR. Items from the branch name are pre-selected."
+        },
+        "azureDevops.pullRequestAutoOpenInBrowser": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically open the pull request in the browser after creation."
+        },
+        "azureDevops.richCopyUrl": {
+          "type": "boolean",
+          "default": false,
+          "description": "Copy rich link with PR title to clipboard when copying pull request URL."
         },
         "azureDevops.enableNotifications": {
           "type": "boolean",
