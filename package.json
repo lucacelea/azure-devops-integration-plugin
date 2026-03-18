@@ -369,6 +369,11 @@
           "default": true,
           "description": "Show a work item picker during pull request creation, allowing you to select work items assigned to you to link to the PR. Items from the branch name are pre-selected."
         },
+        "azureDevops.pullRequestAutoOpenInBrowser": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically open the pull request in the browser after creation."
+        },
         "azureDevops.enableNotifications": {
           "type": "boolean",
           "default": true,
