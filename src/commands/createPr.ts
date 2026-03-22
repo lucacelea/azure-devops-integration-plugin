@@ -1,12 +1,12 @@
 import * as vscode from "vscode";
-import { readFile, writeFile, unlink } from "fs/promises";
+import { readFile } from "fs/promises";
 import { execFile } from "child_process";
 import * as path from "path";
-import * as os from "os";
 import { getDevOpsConfig, getBaseUrl, getWorkItemProject } from "../config";
 import { getCurrentBranch, getDefaultBranch, getRepositoryRoot } from "../git";
 import { getWorkItemId } from "../workItem";
 import { getToken } from "../auth";
+import { editMarkdownViaTempFile } from "../tempMarkdownEditor";
 import {
   createPullRequestApi,
   getAssignedWorkItems,
@@ -164,58 +164,6 @@ export function buildDefaultPullRequestTitle(
   return normalizedTitle.replace(/[a-z]/, (match) => match.toUpperCase());
 }
 
-async function editPullRequestDescription(template?: string): Promise<string> {
-  if (!template) {
-    return "";
-  }
-
-  const tmpPath = path.join(os.tmpdir(), `pr-description-${Date.now()}.md`);
-  await writeFile(tmpPath, template, "utf-8");
-
-  const tmpUri = vscode.Uri.file(tmpPath);
-  // Use the URI-normalized path for comparisons so that drive-letter
-  // casing differences on Windows (C:\ vs c:\) don't cause mismatches.
-  const normalizedPath = tmpUri.fsPath;
-  const doc = await vscode.workspace.openTextDocument(tmpUri);
-  await vscode.window.showTextDocument(doc);
-
-  vscode.window.showInformationMessage(
-    "Edit the PR description, then close the tab to submit. Clear all text to skip.",
-  );
-
-  let latestContent = template;
-
-  // Auto-save on changes so closing the tab never prompts to save
-  const changeDisposable = vscode.workspace.onDidChangeTextDocument((e) => {
-    if (
-      e.document.uri.fsPath === normalizedPath &&
-      e.contentChanges.length > 0
-    ) {
-      latestContent = e.document.getText();
-      e.document.save();
-    }
-  });
-
-  // Use tabGroups.onDidChangeTabs for reliable tab-close detection
-  // (onDidCloseTextDocument is not guaranteed to fire on tab close)
-  return new Promise<string>((resolve) => {
-    const tabDisposable = vscode.window.tabGroups.onDidChangeTabs(async (e) => {
-      for (const tab of e.closed) {
-        if (
-          tab.input instanceof vscode.TabInputText &&
-          tab.input.uri.fsPath === normalizedPath
-        ) {
-          tabDisposable.dispose();
-          changeDisposable.dispose();
-          resolve(latestContent.trim() || "");
-          await unlink(tmpPath).catch(() => {});
-          return;
-        }
-      }
-    });
-  });
-}
-
 export async function createPullRequest(
   secretStorage: vscode.SecretStorage,
 ): Promise<void> {
@@ -362,7 +310,14 @@ export async function createPullRequest(
       template,
       selectedWorkItemTitles,
     );
-    const description = await editPullRequestDescription(templateWithWorkItems);
+    const description = await editMarkdownViaTempFile(
+      templateWithWorkItems ?? "",
+      {
+        infoMessage:
+          "Edit the PR description, then close the tab to submit. Clear all text to skip.",
+        openWhenEmpty: false,
+      },
+    );
 
     // Create via API
     const pr = await vscode.window.withProgress(

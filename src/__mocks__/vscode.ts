@@ -41,6 +41,10 @@ class MockUri {
             url.search.replace('?', ''),
         );
     }
+
+    static file(value: string): { fsPath: string } {
+        return { fsPath: value };
+    }
 }
 
 export const Uri = MockUri;
@@ -80,22 +84,36 @@ export class Range {
 export class Selection extends Range {}
 export enum TextEditorRevealType { InCenter = 0 }
 export class EventEmitter { fire() {} event = () => {}; }
+export class TabInputText {
+    constructor(public uri: { fsPath: string }) {}
+}
+export enum ProgressLocation { Notification = 15 }
 export const window = {
     showErrorMessage: jest.fn(),
     showInformationMessage: jest.fn(),
     showInputBox: jest.fn(),
+    showQuickPick: jest.fn(),
     showTextDocument: jest.fn(),
+    withProgress: jest.fn().mockImplementation(async (_options: unknown, task: () => unknown) => await task()),
+    tabGroups: {
+        onDidChangeTabs: jest.fn(),
+    },
     activeTextEditor: undefined as any,
 };
 export const workspace = {
     openTextDocument: jest.fn(),
+    onDidChangeTextDocument: jest.fn(),
     getConfiguration: jest.fn().mockReturnValue({
         get: jest.fn().mockImplementation((_key: string, defaultValue?: unknown) => defaultValue),
     }),
 };
 export const commands = {
     executeCommand: jest.fn(),
+    registerCommand: jest.fn().mockImplementation((_command: string, callback: unknown) => callback),
 };
 export const env = {
     openExternal: jest.fn(),
+    clipboard: {
+        writeText: jest.fn(),
+    },
 };

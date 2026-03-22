@@ -267,6 +267,18 @@ export class PullRequestTreeProvider implements vscode.TreeDataProvider<PullRequ
         return this.latestPullRequests.get(prId);
     }
 
+    async getCreatedByMePullRequests(): Promise<{ org: string; pullRequests: EnrichedPullRequest[] } | undefined> {
+        const fetched = await this.fetchPullRequests();
+        if (!fetched) {
+            return undefined;
+        }
+
+        return {
+            org: fetched.org,
+            pullRequests: fetched.result.createdByMe,
+        };
+    }
+
     getFilterLabel(): string {
         const labels: Record<PrFilter, string> = {
             all: '',

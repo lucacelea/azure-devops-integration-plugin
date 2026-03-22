@@ -86,18 +86,27 @@
       },
       {
         "command": "azureDevops.completePr",
-        "title": "Complete Pull Request",
+        "title": "Complete",
         "icon": "$(merge)"
       },
       {
         "command": "azureDevops.abandonPr",
-        "title": "Abandon Pull Request",
+        "title": "Abandon",
         "icon": "$(trash)"
       },
       {
         "command": "azureDevops.addCommentPr",
         "title": "Add Comment",
         "icon": "$(comment)"
+      },
+      {
+        "command": "azureDevops.editPrDescription",
+        "title": "Edit Description",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "azureDevops.editPrDescriptionFromPicker",
+        "title": "Azure DevOps: Edit Pull Request Description"
       },
       {
         "command": "azureDevops.checkoutPrBranch",
@@ -198,6 +207,12 @@
           "when": "commentController == azureDevopsPrComments"
         }
       ],
+      "commandPalette": [
+        {
+          "command": "azureDevops.editPrDescription",
+          "when": "false"
+        }
+      ],
       "view/title": [
         {
           "command": "azureDevops.refreshPullRequests",
@@ -280,6 +295,11 @@
           "command": "azureDevops.addCommentPr",
           "when": "viewItem == pullRequest",
           "group": "2_actions@3"
+        },
+        {
+          "command": "azureDevops.editPrDescription",
+          "when": "viewItem == pullRequest",
+          "group": "2_actions@4"
         },
         {
           "command": "azureDevops.checkoutPrBranch",
