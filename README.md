@@ -1,6 +1,6 @@
 # Azure DevOps Integration for VS Code
 
-A VS Code extension for Azure DevOps. Browse pull requests in a sidebar grouped by "Created by me," "Assigned to me," and "My teams," with review, check, and comment status. Auto-detects config from git remotes and extracts work item IDs from branch names. Create PRs, open repos, and link work items — all without leaving the editor.
+A VS Code extension for Azure DevOps. Browse pull requests in a sidebar grouped by "Created by me," "Assigned to me," and "My teams," with review, check, and comment status. Auto-detects config from git remotes and extracts work item IDs from branch names. Create PRs, edit PR descriptions, open repos, and link work items — all without leaving the editor.
 
 ## Features
 
@@ -21,7 +21,7 @@ Each PR displays rich status information:
 - Check status (Passed / Failed / Running)
 - Unresolved comment count
 
-Click any PR to open its changes in VS Code. Use the context menu to open the PR in Azure DevOps when needed.
+Click any PR to open its changes in VS Code. Use the context menu to open the PR in Azure DevOps, add comments, or edit the PR description when needed.
 
 ### Comment Notifications And Discussion
 
@@ -53,6 +53,7 @@ Open the Command Palette (`Cmd+Shift+P`) and type "Azure DevOps" to access:
 | **Azure DevOps: Create Pull Request** | Creates a PR from the current branch. Automatically links detected work items, strips the configured personal branch prefix from the suggested title, appends selected work item titles to the description, and applies a repository PR template when available. |
 | **Azure DevOps: Open Repository** | Opens the repository in Azure DevOps. |
 | **Azure DevOps: Open Work Item** | Opens a work item by ID. Pre-fills the detected ID from the current branch. |
+| **Azure DevOps: Edit Pull Request Description** | Lets you pick one of your authored pull requests, opens its current description in a temporary markdown editor, and updates the PR when you close the tab. |
 | **Azure DevOps: Set Personal Access Token** | Configure your PAT for API access. |
 | **Azure DevOps: Remove Personal Access Token** | Remove your stored PAT. |
 | **Azure DevOps: Refresh Pull Requests** | Manually refresh the PR sidebar. |
