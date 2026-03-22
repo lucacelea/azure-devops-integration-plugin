@@ -38,6 +38,9 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('azureDevops.editPrDescription', (item?: any) => {
             return editExistingPrDescription(prProvider, item);
         }),
+        vscode.commands.registerCommand('azureDevops.editPrDescriptionFromPicker', () => {
+            return editExistingPrDescription(prProvider);
+        }),
     );
 
     // Register PR quick actions (Phase 1)

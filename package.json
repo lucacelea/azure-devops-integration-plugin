@@ -105,6 +105,10 @@
         "icon": "$(edit)"
       },
       {
+        "command": "azureDevops.editPrDescriptionFromPicker",
+        "title": "Azure DevOps: Edit PR Description"
+      },
+      {
         "command": "azureDevops.checkoutPrBranch",
         "title": "Checkout Branch",
         "icon": "$(source-control)"
@@ -201,6 +205,12 @@
           "command": "azureDevops.replyToComment",
           "group": "inline",
           "when": "commentController == azureDevopsPrComments"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "azureDevops.editPrDescription",
+          "when": "false"
         }
       ],
       "view/title": [
