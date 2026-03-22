@@ -7,6 +7,7 @@ import { createStatusBarItem } from './statusBar';
 import { registerPrSidebar, PrFilter, PrSort } from './prSidebar';
 import { registerPrActions } from './commands/prActions';
 import { checkoutPrBranch } from './commands/checkoutBranch';
+import { editExistingPrDescription } from './commands/editPrDescription';
 import { PrChangesProvider, PrFileItem } from './prChangesProvider';
 import { PrContentProvider, buildPrFileUri } from './prContentProvider';
 import { PrCommentController } from './prComments';
@@ -34,6 +35,9 @@ export function activate(context: vscode.ExtensionContext) {
             prProvider.refresh();
         }),
         vscode.commands.registerCommand('azureDevops.refreshPullRequests', () => prProvider.refresh()),
+        vscode.commands.registerCommand('azureDevops.editPrDescription', (item?: any) => {
+            return editExistingPrDescription(prProvider, item);
+        }),
     );
 
     // Register PR quick actions (Phase 1)

@@ -100,6 +100,11 @@
         "icon": "$(comment)"
       },
       {
+        "command": "azureDevops.editPrDescription",
+        "title": "Edit PR Description",
+        "icon": "$(edit)"
+      },
+      {
         "command": "azureDevops.checkoutPrBranch",
         "title": "Checkout Branch",
         "icon": "$(source-control)"
@@ -280,6 +285,11 @@
           "command": "azureDevops.addCommentPr",
           "when": "viewItem == pullRequest",
           "group": "2_actions@3"
+        },
+        {
+          "command": "azureDevops.editPrDescription",
+          "when": "viewItem == pullRequest",
+          "group": "2_actions@4"
         },
         {
           "command": "azureDevops.checkoutPrBranch",

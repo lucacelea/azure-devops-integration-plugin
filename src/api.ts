@@ -3,6 +3,7 @@ import * as https from 'https';
 export interface PullRequest {
     pullRequestId: number;
     title: string;
+    description?: string;
     sourceRefName: string;
     createdBy: { displayName: string; id: string };
     reviewers: Array<{ displayName: string; vote: number; id: string }>;
@@ -638,10 +639,17 @@ export async function replyToThread(
 
 export async function getPullRequestDetails(
     org: string, project: string, repoId: string, prId: number, token: string
-): Promise<any> {
+): Promise<PullRequestDetails> {
     const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/pullRequests/${prId}?api-version=7.1`;
     const body = await httpsGet(url, authHeaders(token));
     return JSON.parse(body);
+}
+
+export interface PullRequestDetails extends PullRequest {
+    description?: string;
+    lastMergeSourceCommit?: {
+        commitId?: string;
+    };
 }
 
 export interface CreatePullRequestOptions {
@@ -675,6 +683,14 @@ export async function createPullRequestApi(options: CreatePullRequestOptions): P
 
     const response = await httpsRequest(url, 'POST', authHeaders(token), body);
     return JSON.parse(response);
+}
+
+export async function updatePullRequestDescription(
+    org: string, project: string, repoId: string, prId: number,
+    description: string, token: string
+): Promise<void> {
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/pullRequests/${prId}?api-version=7.1`;
+    await httpsRequest(url, 'PATCH', authHeaders(token), { description });
 }
 
 export interface AutoCompleteOptions {
