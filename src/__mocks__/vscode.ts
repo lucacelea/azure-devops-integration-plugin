@@ -64,13 +64,38 @@ export class MarkdownString {
     value: string;
     constructor(value?: string) { this.value = value ?? ''; }
 }
+export class Range {
+    start: { line: number; character: number };
+    end: { line: number; character: number };
+    constructor(
+        public startLine: number,
+        public startCharacter: number,
+        public endLine: number,
+        public endCharacter: number
+    ) {
+        this.start = { line: startLine, character: startCharacter };
+        this.end = { line: endLine, character: endCharacter };
+    }
+}
+export class Selection extends Range {}
+export enum TextEditorRevealType { InCenter = 0 }
 export class EventEmitter { fire() {} event = () => {}; }
-export const window = { showErrorMessage: jest.fn(), showInformationMessage: jest.fn(), showInputBox: jest.fn(), showTextDocument: jest.fn() };
+export const window = {
+    showErrorMessage: jest.fn(),
+    showInformationMessage: jest.fn(),
+    showInputBox: jest.fn(),
+    showTextDocument: jest.fn(),
+    activeTextEditor: undefined as any,
+};
 export const workspace = {
     openTextDocument: jest.fn(),
     getConfiguration: jest.fn().mockReturnValue({
         get: jest.fn().mockImplementation((_key: string, defaultValue?: unknown) => defaultValue),
     }),
 };
-export const commands = {};
-export const env = {};
+export const commands = {
+    executeCommand: jest.fn(),
+};
+export const env = {
+    openExternal: jest.fn(),
+};

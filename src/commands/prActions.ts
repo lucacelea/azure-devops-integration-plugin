@@ -8,6 +8,7 @@ import {
     getPullRequestDetails,
 } from '../api';
 import { getToken } from '../auth';
+import { buildPullRequestUrl } from '../prLinks';
 
 async function getContext(item: PullRequestItem, provider: PullRequestTreeProvider) {
     if (!item) {
@@ -139,7 +140,7 @@ export function registerPrActions(
             if (!pr || !org) { return; }
             const project = pr.repository?.project?.name ?? '';
             const repoName = pr.repository?.name ?? '';
-            const prUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_git/${encodeURIComponent(repoName)}/pullrequest/${pr.pullRequestId}`;
+            const prUrl = buildPullRequestUrl(org, project, repoName, pr.pullRequestId);
             vscode.env.openExternal(vscode.Uri.parse(prUrl));
         })
     );

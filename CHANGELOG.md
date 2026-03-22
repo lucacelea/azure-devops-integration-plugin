@@ -4,6 +4,19 @@ All notable changes to the "Azure DevOps Integration" extension will be document
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- **Actionable PR comment notifications**: notifications for newly detected PR comment activity now offer `Open Comment` and `Open in DevOps` actions when a single new discussion event is detected.
+  - `Open Comment` opens the relevant discussion target in VS Code: file comments open the diff at the commented line, and general comments open the full thread view.
+  - `Open in DevOps` now targets the PR discussion URL shape with a thread-specific link when available, falling back to the PR page.
+
+### Changed
+
+- **Comment notification detection is now thread-aware**: notifications now track new discussion threads and replies using thread/comment identity instead of only comparing unresolved comment counts.
+- **Multiple simultaneous comment events now use a summary notification**: when more than one new discussion event is detected in a single refresh cycle, the extension shows a summary notification instead of a single-target action.
+
 ## [0.5.0] - 2026-03-18
 
 ### Added

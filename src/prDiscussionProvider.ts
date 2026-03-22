@@ -267,6 +267,46 @@ export class PrDiscussionProvider implements vscode.TreeDataProvider<DiscussionT
         }
     }
 
+    async openThreadById(pr: EnrichedPullRequest, org: string, threadId: number): Promise<boolean> {
+        const token = await getToken(this.secretStorage);
+        if (!token) { return false; }
+
+        const project = pr.repository?.project?.name ?? '';
+        const repoId = pr.repository?.id ?? '';
+        if (!project || !repoId) { return false; }
+
+        try {
+            const [threads, iterations] = await Promise.all([
+                getPrThreads(org, project, repoId, pr.pullRequestId, token),
+                getPrIterations(org, project, repoId, pr.pullRequestId, token),
+            ]);
+
+            const lastIteration = iterations.at(-1);
+            const sourceCommitId = lastIteration?.sourceRefCommit?.commitId ?? '';
+            const targetCommitId = lastIteration?.targetRefCommit?.commitId ?? '';
+
+            const visibleThreads = threads
+                .filter((t) =>
+                    !t.isDeleted &&
+                    t.comments.some((c) => !c.isDeleted && c.commentType !== 'system')
+                )
+                .map((t) => new PrDiscussionItem(
+                    t, org, project, repoId, pr.pullRequestId,
+                    sourceCommitId, targetCommitId
+                ));
+
+            const target = visibleThreads.find((item) => item.thread.id === threadId) ?? visibleThreads[0];
+            if (!target) {
+                return false;
+            }
+
+            await this.openComment(target);
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
     /** Open a read-only markdown document showing the full discussion thread. */
     private async showFullComment(item: PrDiscussionItem): Promise<void> {
         const userComments = item.thread.comments.filter(

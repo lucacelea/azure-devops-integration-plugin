@@ -1,7 +1,18 @@
 import * as vscode from 'vscode';
 import { getOrganization } from './config';
 import { getToken } from './auth';
-import { getMyPullRequests, getUserId, EnrichedPullRequest, MyPullRequests, PolicyCheck } from './api';
+import { getMyPullRequests, getUserId, EnrichedPullRequest, MyPullRequests, PolicyCheck, PrThreadSummary } from './api';
+
+export interface CommentNotificationEvent {
+    org: string;
+    pr: EnrichedPullRequest;
+    thread: PrThreadSummary;
+}
+
+interface CommentNotificationHandlers {
+    openComment: (event: CommentNotificationEvent) => Promise<void>;
+    openInDevOps: (event: CommentNotificationEvent) => Promise<void>;
+}
 
 export class PullRequestItem extends vscode.TreeItem {
     public children?: PullRequestItem[];
@@ -225,8 +236,10 @@ export class PullRequestTreeProvider implements vscode.TreeDataProvider<PullRequ
     public cachedOrg?: string;
     private currentFilter: PrFilter = 'all';
     private currentSort: PrSort = 'default';
-    private previousCommentCounts: Map<number, number> = new Map();
+    private previousThreadSnapshot: Map<number, Map<number, number>> = new Map();
+    private commentNotificationHandlers?: CommentNotificationHandlers;
     private initialized = false;
+    private latestPullRequests = new Map<number, EnrichedPullRequest>();
 
     constructor(secretStorage: vscode.SecretStorage) {
         this.secretStorage = secretStorage;
@@ -244,6 +257,14 @@ export class PullRequestTreeProvider implements vscode.TreeDataProvider<PullRequ
     setSort(sort: PrSort): void {
         this.currentSort = sort;
         this._onDidChangeTreeData.fire();
+    }
+
+    setCommentNotificationHandlers(handlers: CommentNotificationHandlers): void {
+        this.commentNotificationHandlers = handlers;
+    }
+
+    getPullRequestById(prId: number): EnrichedPullRequest | undefined {
+        return this.latestPullRequests.get(prId);
     }
 
     getFilterLabel(): string {
@@ -286,22 +307,46 @@ export class PullRequestTreeProvider implements vscode.TreeDataProvider<PullRequ
         }
     }
 
-    checkForNewComments(allPrs: EnrichedPullRequest[]): void {
-        const newCounts = new Map<number, number>();
-        const prsWithNewComments: EnrichedPullRequest[] = [];
+    private buildThreadSnapshot(allPrs: EnrichedPullRequest[]): Map<number, Map<number, number>> {
+        const snapshot = new Map<number, Map<number, number>>();
 
         for (const pr of allPrs) {
-            newCounts.set(pr.pullRequestId, pr.unresolvedCommentCount);
+            snapshot.set(
+                pr.pullRequestId,
+                new Map(pr.commentThreads.map((thread) => [thread.threadId, thread.latestCommentId]))
+            );
+        }
 
-            if (this.initialized) {
-                const previous = this.previousCommentCounts.get(pr.pullRequestId) ?? 0;
-                if (pr.unresolvedCommentCount > previous) {
-                    prsWithNewComments.push(pr);
+        return snapshot;
+    }
+
+    private getNewCommentEvents(allPrs: EnrichedPullRequest[]): CommentNotificationEvent[] {
+        const events: CommentNotificationEvent[] = [];
+        const org = this.cachedOrg;
+        if (!org) {
+            return events;
+        }
+
+        for (const pr of allPrs) {
+            const previousThreads = this.previousThreadSnapshot.get(pr.pullRequestId) ?? new Map<number, number>();
+            for (const thread of pr.commentThreads) {
+                const previousCommentId = previousThreads.get(thread.threadId);
+                if (previousCommentId === undefined || thread.latestCommentId > previousCommentId) {
+                    events.push({ org, pr, thread });
                 }
             }
         }
 
-        this.previousCommentCounts = newCounts;
+        return events;
+    }
+
+    async checkForNewComments(allPrs: EnrichedPullRequest[]): Promise<void> {
+        this.latestPullRequests = new Map(allPrs.map((pr) => [pr.pullRequestId, pr]));
+
+        const newSnapshot = this.buildThreadSnapshot(allPrs);
+        const newCommentEvents = this.initialized ? this.getNewCommentEvents(allPrs) : [];
+
+        this.previousThreadSnapshot = newSnapshot;
         this.initialized = true;
 
         const notificationsEnabled = vscode.workspace
@@ -312,14 +357,22 @@ export class PullRequestTreeProvider implements vscode.TreeDataProvider<PullRequ
             return;
         }
 
-        if (prsWithNewComments.length === 1) {
-            const pr = prsWithNewComments[0];
-            vscode.window.showInformationMessage(
-                `New unresolved comments on PR #${pr.pullRequestId}: ${pr.title}`
+        if (newCommentEvents.length === 1) {
+            const event = newCommentEvents[0];
+            const selection = await vscode.window.showInformationMessage(
+                `New comments on PR #${event.pr.pullRequestId}: ${event.pr.title}`,
+                'Open Comment',
+                'Open in DevOps'
             );
-        } else if (prsWithNewComments.length > 1) {
-            vscode.window.showInformationMessage(
-                `New unresolved comments on ${prsWithNewComments.length} pull requests`
+
+            if (selection === 'Open Comment') {
+                await this.commentNotificationHandlers?.openComment(event);
+            } else if (selection === 'Open in DevOps') {
+                await this.commentNotificationHandlers?.openInDevOps(event);
+            }
+        } else if (newCommentEvents.length > 1) {
+            await vscode.window.showInformationMessage(
+                `New comments on ${newCommentEvents.length} discussion threads`
             );
         }
     }
@@ -353,7 +406,7 @@ export class PullRequestTreeProvider implements vscode.TreeDataProvider<PullRequ
         if (!fetched) { return; }
 
         const { createdByMe, assignedToMe, assignedToMyTeams } = fetched.result;
-        this.checkForNewComments([...createdByMe, ...assignedToMe, ...assignedToMyTeams]);
+        await this.checkForNewComments([...createdByMe, ...assignedToMe, ...assignedToMyTeams]);
         this.refresh();
     }
 
@@ -384,7 +437,7 @@ export class PullRequestTreeProvider implements vscode.TreeDataProvider<PullRequ
         const { org, result } = fetched;
         const { createdByMe, assignedToMe, assignedToMyTeams } = result;
 
-        this.checkForNewComments([...createdByMe, ...assignedToMe, ...assignedToMyTeams]);
+        await this.checkForNewComments([...createdByMe, ...assignedToMe, ...assignedToMyTeams]);
 
         const filteredCreated = this.sortPrs(this.filterPrs(createdByMe));
         const filteredAssigned = this.sortPrs(this.filterPrs(assignedToMe));

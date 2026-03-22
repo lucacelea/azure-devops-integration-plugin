@@ -23,6 +23,7 @@ export interface EnrichedPullRequest extends PullRequest {
     unresolvedCommentCount: number;
     checksStatus: 'passed' | 'failed' | 'running' | 'none';
     checks: PolicyCheck[];
+    commentThreads: PrThreadSummary[];
 }
 
 export interface PrChange {
@@ -126,13 +127,21 @@ async function getMyTeamIds(org: string, token: string): Promise<string[]> {
     }
 }
 
-async function getUnresolvedCommentCount(
+export interface PrThreadSummary {
+    threadId: number;
+    status: string;
+    filePath?: string;
+    line?: number;
+    latestCommentId: number;
+}
+
+async function getCommentThreadSummary(
     org: string,
     project: string,
     repoId: string,
     prId: number,
     token: string
-): Promise<number> {
+): Promise<{ unresolvedCommentCount: number; commentThreads: PrThreadSummary[] }> {
     const url =
         `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}` +
         `/_apis/git/repositories/${repoId}/pullRequests/${prId}/threads?api-version=7.1`;
@@ -140,19 +149,41 @@ async function getUnresolvedCommentCount(
         const body = await httpsGet(url, authHeaders(token));
         const data = JSON.parse(body);
         const threads = data.value as Array<{
+            id: number;
             status: string;
             isDeleted: boolean;
-            comments: Array<{ commentType: string; isDeleted: boolean }>;
+            threadContext?: {
+                filePath?: string;
+                rightFileStart?: { line: number };
+                leftFileStart?: { line: number };
+            };
+            comments: Array<{ id: number; commentType: string; isDeleted: boolean }>;
         }>;
-        return threads.filter(
-            (t) =>
-                t.status === 'active' &&
-                !t.isDeleted &&
-                t.comments?.[0]?.commentType !== 'system' &&
-                !t.comments?.every((c) => c.isDeleted)
-        ).length;
+        const visibleThreads = threads
+            .filter((t) => !t.isDeleted)
+            .reduce<PrThreadSummary[]>((summaries, thread) => {
+                const visibleComments = thread.comments.filter(
+                    (comment) => !comment.isDeleted && comment.commentType !== 'system'
+                );
+                if (visibleComments.length === 0) {
+                    return summaries;
+                }
+
+                const position = thread.threadContext?.rightFileStart ?? thread.threadContext?.leftFileStart;
+                summaries.push({
+                    threadId: thread.id,
+                    status: thread.status,
+                    filePath: thread.threadContext?.filePath,
+                    line: position?.line,
+                    latestCommentId: visibleComments[visibleComments.length - 1].id,
+                });
+                return summaries;
+            }, []);
+
+        const unresolvedCommentCount = visibleThreads.filter((thread) => thread.status === 'active').length;
+        return { unresolvedCommentCount, commentThreads: visibleThreads };
     } catch {
-        return 0;
+        return { unresolvedCommentCount: 0, commentThreads: [] };
     }
 }
 
@@ -417,10 +448,10 @@ async function enrichPullRequests(
             const projectId = pr.repository?.project?.id ?? '';
             const repoId = pr.repository?.id ?? '';
 
-            const [unresolvedCommentCount, checksResult] = await Promise.all([
+            const [commentSummary, checksResult] = await Promise.all([
                 project && repoId
-                    ? getUnresolvedCommentCount(org, project, repoId, pr.pullRequestId, token)
-                    : Promise.resolve(0),
+                    ? getCommentThreadSummary(org, project, repoId, pr.pullRequestId, token)
+                    : Promise.resolve({ unresolvedCommentCount: 0, commentThreads: [] as PrThreadSummary[] }),
                 project && projectId
                     ? getChecks(org, project, projectId, pr.pullRequestId, token, pr.reviewers ?? [])
                     : Promise.resolve({ checksStatus: 'none' as const, checks: [] as PolicyCheck[] }),
@@ -442,7 +473,13 @@ async function enrichPullRequests(
             // Recalculate checksStatus including the synthetic check
             const checksStatus = computeChecksStatus(checks);
 
-            return { ...pr, unresolvedCommentCount, checksStatus, checks };
+            return {
+                ...pr,
+                unresolvedCommentCount: commentSummary.unresolvedCommentCount,
+                commentThreads: commentSummary.commentThreads,
+                checksStatus,
+                checks,
+            };
         })
     );
 }

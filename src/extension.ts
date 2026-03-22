@@ -12,6 +12,7 @@ import { PrContentProvider, buildPrFileUri } from './prContentProvider';
 import { PrCommentController } from './prComments';
 import { PrDiscussionProvider, PrDiscussionItem } from './prDiscussionProvider';
 import { PrCommentDocProvider, PR_COMMENT_SCHEME } from './prCommentDocProvider';
+import { buildPullRequestThreadUrl } from './prLinks';
 
 export function activate(context: vscode.ExtensionContext) {
     const secretStorage = context.secrets;
@@ -107,6 +108,22 @@ export function activate(context: vscode.ExtensionContext) {
     const prDiscussionProvider = new PrDiscussionProvider(secretStorage);
     const prDiscussionTree = vscode.window.createTreeView('azureDevops.prDiscussion', {
         treeDataProvider: prDiscussionProvider,
+    });
+
+    prProvider.setCommentNotificationHandlers({
+        openComment: async ({ org, pr, thread }) => {
+            prChangesProvider.selectPr(pr, org);
+            prChangesTree.title = `Changes: #${pr.pullRequestId}`;
+            prDiscussionProvider.selectPr(pr, org);
+            prDiscussionTree.title = `Discussion: #${pr.pullRequestId}`;
+            await prDiscussionProvider.openThreadById(pr, org, thread.threadId);
+        },
+        openInDevOps: async ({ org, pr, thread }) => {
+            const project = pr.repository?.project?.name ?? '';
+            const repoName = pr.repository?.name ?? '';
+            const url = buildPullRequestThreadUrl(org, project, repoName, pr.pullRequestId, thread.threadId);
+            await vscode.env.openExternal(vscode.Uri.parse(url));
+        },
     });
 
     context.subscriptions.push(

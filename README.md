@@ -23,6 +23,16 @@ Each PR displays rich status information:
 
 Click any PR to open its changes in VS Code. Use the context menu to open the PR in Azure DevOps when needed.
 
+### Comment Notifications And Discussion
+
+The extension can notify you when new PR discussion activity is detected during background refresh.
+
+- Single new discussion event notifications include `Open Comment` and `Open in DevOps`
+- `Open Comment` opens the relevant target in VS Code
+- File comments open the PR diff and reveal the commented line
+- General comments open the full discussion thread in a read-only editor
+- When multiple new discussion events are detected at once, the extension shows a summary notification instead of guessing which thread to open
+
 ### Work Item Detection
 
 The extension automatically extracts work item IDs from your branch name using common patterns:
@@ -91,6 +101,9 @@ All settings are optional — the extension auto-detects values from your git re
 | `azureDevops.pullRequestCompleteWorkItems` | `true` | Complete associated work items after merge when auto-complete is set |
 | `azureDevops.showAssignedWorkItems` | `true` | Show a work item picker during PR creation to select assigned work items to link |
 | `azureDevops.pullRequestRefreshInterval` | `60` | Auto-refresh interval in seconds (minimum 30) |
+| `azureDevops.pullRequestAutoOpenInBrowser` | `false` | Automatically open the pull request in the browser after creation |
+| `azureDevops.richCopyUrl` | `false` | Copy a rich link with the PR title when copying the pull request URL |
+| `azureDevops.enableNotifications` | `true` | Enable desktop notifications for new PR discussion activity |
 
 ## Requirements
 

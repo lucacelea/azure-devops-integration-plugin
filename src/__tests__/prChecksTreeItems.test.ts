@@ -14,6 +14,7 @@ function makePr(overrides: Partial<EnrichedPullRequest> = {}): EnrichedPullReque
         isDraft: false,
         url: '',
         unresolvedCommentCount: 0,
+        commentThreads: [],
         checksStatus: 'none',
         checks: [],
         ...overrides,
