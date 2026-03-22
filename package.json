@@ -86,12 +86,12 @@
       },
       {
         "command": "azureDevops.completePr",
-        "title": "Complete Pull Request",
+        "title": "Complete",
         "icon": "$(merge)"
       },
       {
         "command": "azureDevops.abandonPr",
-        "title": "Abandon Pull Request",
+        "title": "Abandon",
         "icon": "$(trash)"
       },
       {
@@ -101,12 +101,12 @@
       },
       {
         "command": "azureDevops.editPrDescription",
-        "title": "Edit PR Description",
+        "title": "Edit Description",
         "icon": "$(edit)"
       },
       {
         "command": "azureDevops.editPrDescriptionFromPicker",
-        "title": "Azure DevOps: Edit PR Description"
+        "title": "Azure DevOps: Edit Pull Request Description"
       },
       {
         "command": "azureDevops.checkoutPrBranch",
