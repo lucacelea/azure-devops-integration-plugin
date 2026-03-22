@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Comment notification detection is now thread-aware**: notifications now track new discussion threads and replies using thread/comment identity instead of only comparing unresolved comment counts.
 - **Multiple simultaneous comment events now use a summary notification**: when more than one new discussion event is detected in a single refresh cycle, the extension shows a summary notification instead of a single-target action.
+- **PR title suggestions now honor `azureDevops.branchPrefix`**: when creating a pull request, the default title now strips the configured personal branch prefix before applying the existing title normalization.
 
 ## [0.5.0] - 2026-03-18
 

@@ -137,6 +137,33 @@ export function appendWorkItemsToTemplate(
   return `${template.trimEnd()}\n\n${workItemSection}`;
 }
 
+export function buildDefaultPullRequestTitle(
+  branch: string,
+  options?: {
+    branchPrefix?: string;
+    workItemId?: number;
+  },
+): string {
+  const branchPrefix = options?.branchPrefix?.trim();
+  const workItemId = options?.workItemId;
+
+  let titleSource = branch;
+  if (branchPrefix && titleSource.startsWith(branchPrefix)) {
+    titleSource = titleSource.slice(branchPrefix.length);
+  }
+
+  const normalizedTitle = titleSource
+    .replace(/^(?:feature|bugfix|hotfix|fix|task|chore)\//, "")
+    .replace(
+      /^\d+[-_]?/,
+      workItemId !== undefined ? `AB#${workItemId} ` : "",
+    )
+    .replace(/[-_]/g, " ")
+    .trim();
+
+  return normalizedTitle.replace(/[a-z]/, (match) => match.toUpperCase());
+}
+
 async function editPullRequestDescription(template?: string): Promise<string> {
   if (!template) {
     return "";
@@ -240,12 +267,14 @@ export async function createPullRequest(
       .getConfiguration("azureDevops")
       .get<string>("pullRequestLinkedWorkItemState", "")
       .trim();
+    const branchPrefix = vscode.workspace
+      .getConfiguration("azureDevops")
+      .get<string>("branchPrefix", "");
 
-    const defaultTitle = branch
-      .replace(/^(?:feature|bugfix|hotfix|fix|task|chore)\//, "")
-      .replace(/^\d+[-_]?/, hasValidWorkItemId ? `AB#${parsedWorkItemId} ` : "")
-      .replace(/[-_]/g, " ")
-      .trim();
+    const defaultTitle = buildDefaultPullRequestTitle(branch, {
+      branchPrefix,
+      workItemId: hasValidWorkItemId ? parsedWorkItemId : undefined,
+    });
 
     const title = await vscode.window.showInputBox({
       prompt: "Pull request title",

@@ -50,7 +50,7 @@ Open the Command Palette (`Cmd+Shift+P`) and type "Azure DevOps" to access:
 
 | Command | Description |
 |---------|-------------|
-| **Azure DevOps: Create Pull Request** | Creates a PR from the current branch. Automatically links detected work items, appends selected work item titles to the description, and applies a repository PR template when available. |
+| **Azure DevOps: Create Pull Request** | Creates a PR from the current branch. Automatically links detected work items, strips the configured personal branch prefix from the suggested title, appends selected work item titles to the description, and applies a repository PR template when available. |
 | **Azure DevOps: Open Repository** | Opens the repository in Azure DevOps. |
 | **Azure DevOps: Open Work Item** | Opens a work item by ID. Pre-fills the detected ID from the current branch. |
 | **Azure DevOps: Set Personal Access Token** | Configure your PAT for API access. |
@@ -92,7 +92,7 @@ All settings are optional — the extension auto-detects values from your git re
 | `azureDevops.project` | Auto-detected | Azure DevOps project name |
 | `azureDevops.repository` | Auto-detected | Azure DevOps repository name |
 | `azureDevops.workItemProject` | Same as project | Project for work items, if different from the repo's project |
-| `azureDevops.branchPrefix` | `""` | Personal branch prefix to strip (e.g., `lucac/`) |
+| `azureDevops.branchPrefix` | `""` | Personal branch prefix to strip (e.g., `lucac/`) when parsing branch names and generating the default PR title |
 | `azureDevops.workItemPattern` | Built-in patterns | Custom regex to extract work item ID from branch name |
 | `azureDevops.pullRequestLinkedWorkItemState` | `""` | Optional state to set on linked work item when creating a PR (leave empty to disable) |
 | `azureDevops.pullRequestAutoComplete` | `false` | Automatically set auto-complete on newly created pull requests |
