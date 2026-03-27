@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Configurable notification scope**: new `azureDevops.notificationScope` setting controls which pull requests trigger comment notifications. Set to `"participating"` to limit notifications to PRs you created or are assigned to, or `"off"` to silence all notifications. Defaults to `"all"` (current behaviour).
 - **Remote branch check before PR creation**: when creating a pull request, the extension now checks whether the current branch has been pushed to `origin`. If it hasn't, you are offered a "Push & Continue" option that pushes the branch before proceeding, or "Cancel" to exit — instead of discovering the problem after filling out all the PR fields.
 - **Cancel PR creation from the description editor**: after closing the description editor, a confirmation dialog now appears before the pull request is submitted. Choosing "Cancel" exits the flow cleanly without creating anything.
 
