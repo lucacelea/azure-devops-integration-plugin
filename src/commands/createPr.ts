@@ -3,7 +3,7 @@ import { readFile } from "fs/promises";
 import { execFile } from "child_process";
 import * as path from "path";
 import { getDevOpsConfig, getBaseUrl, getWorkItemProject } from "../config";
-import { getCurrentBranch, getDefaultBranch, getRepositoryRoot } from "../git";
+import { getCurrentBranch, getDefaultBranch, getRepositoryRoot, branchExistsOnRemote, pushBranchToRemote } from "../git";
 import { getWorkItemId } from "../workItem";
 import { getToken } from "../auth";
 import { editMarkdownViaTempFile } from "../tempMarkdownEditor";
@@ -192,6 +192,31 @@ export async function createPullRequest(
         "Could not determine the current Git branch.",
       );
       return;
+    }
+
+    const onRemote = await branchExistsOnRemote(branch);
+    if (!onRemote) {
+      const choice = await vscode.window.showWarningMessage(
+        `Branch "${branch}" has not been pushed to origin.`,
+        "Push & Continue",
+        "Cancel",
+      );
+      if (choice !== "Push & Continue") {
+        return;
+      }
+      const pushed = await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: `Pushing "${branch}" to origin...`,
+        },
+        () => pushBranchToRemote(branch),
+      );
+      if (!pushed) {
+        vscode.window.showErrorMessage(
+          `Failed to push "${branch}" to origin.`,
+        );
+        return;
+      }
     }
 
     const defaultBranch = await getDefaultBranch();
