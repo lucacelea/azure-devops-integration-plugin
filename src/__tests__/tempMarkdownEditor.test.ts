@@ -16,8 +16,8 @@ describe("editMarkdownViaTempFile", () => {
     (vscode.window.showInformationMessage as jest.Mock).mockReturnValue(undefined);
     (vscode.workspace.onDidChangeTextDocument as jest.Mock).mockReturnValue({ dispose: jest.fn() });
     (vscode.window.tabGroups.onDidChangeTabs as jest.Mock).mockImplementation((cb: (e: { closed: { input: vscode.TabInputText }[] }) => void) => {
-      // Simulate tab close immediately
-      cb({ closed: [{ input: new vscode.TabInputText({ fsPath: "/tmp/pr-description-123.md" }) }] });
+      // Defer to next microtask so tabDisposable is assigned before the callback fires
+      Promise.resolve().then(() => cb({ closed: [{ input: new vscode.TabInputText({ fsPath: "/tmp/pr-description-123.md" } as unknown as vscode.Uri) }] }));
       return { dispose: jest.fn() };
     });
   });
