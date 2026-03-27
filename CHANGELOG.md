@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **PR description editor always opens**: when creating a pull request with no repository template and no work items selected, the description editor now always opens instead of silently skipping the step. You can still close the tab with an empty file to submit with no description.
 - **Self-authored comments no longer trigger notifications**: comment notifications are now suppressed when the latest comment in a thread was written by the current user, eliminating noise from your own replies and new threads.
 
 ## [0.6.0] - 2026-03-22
