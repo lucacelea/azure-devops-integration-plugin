@@ -167,6 +167,48 @@ export function buildDefaultPullRequestTitle(
   return normalizedTitle.replace(/[a-z]/, (match) => match.toUpperCase());
 }
 
+async function ensureBranchOnRemote(branch: string): Promise<boolean> {
+  const onRemote = await branchExistsOnRemote(branch);
+  if (onRemote) {
+    return true;
+  }
+
+  const choice = await vscode.window.showQuickPick(
+    [
+      {
+        label: "Push branch to origin and continue",
+        action: "push" as const,
+      },
+      {
+        label: "Cancel",
+        action: "cancel" as const,
+      },
+    ],
+    {
+      placeHolder: `Branch "${branch}" has not been pushed to origin.`,
+    },
+  );
+
+  if (choice?.action !== "push") {
+    return false;
+  }
+
+  const pushed = await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: `Pushing "${branch}" to origin...`,
+    },
+    () => pushBranchToRemote(branch),
+  );
+
+  if (!pushed) {
+    vscode.window.showErrorMessage(`Failed to push "${branch}" to origin.`);
+    return false;
+  }
+
+  return true;
+}
+
 export async function createPullRequest(
   secretStorage: vscode.SecretStorage,
 ): Promise<void> {
@@ -197,27 +239,9 @@ export async function createPullRequest(
       return;
     }
 
-    const onRemote = await branchExistsOnRemote(branch);
-    if (!onRemote) {
-      const choice = await vscode.window.showWarningMessage(
-        `Branch "${branch}" has not been pushed to origin.`,
-        "Push & Continue",
-        "Cancel",
-      );
-      if (choice !== "Push & Continue") {
-        return;
-      }
-      const pushed = await vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: `Pushing "${branch}" to origin...`,
-        },
-        () => pushBranchToRemote(branch),
-      );
-      if (!pushed) {
-        vscode.window.showErrorMessage(`Failed to push "${branch}" to origin.`);
-        return;
-      }
+    const branchReadyOnRemote = await ensureBranchOnRemote(branch);
+    if (!branchReadyOnRemote) {
+      return;
     }
 
     const defaultBranch = await getDefaultBranch();
@@ -234,7 +258,9 @@ export async function createPullRequest(
 
     // Gather PR details
     const workItemId = await getWorkItemId();
-    const parsedWorkItemId = workItemId ? parseInt(workItemId, 10) : undefined;
+    const parsedWorkItemId = workItemId
+      ? Number.parseInt(workItemId, 10)
+      : undefined;
     const hasValidWorkItemId =
       parsedWorkItemId !== undefined && !Number.isNaN(parsedWorkItemId);
     const workItemState = vscode.workspace

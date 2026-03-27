@@ -44,6 +44,11 @@ const api = jest.requireMock("../api") as {
   createPullRequestApi: jest.Mock;
 };
 
+const git = jest.requireMock("../git") as {
+  branchExistsOnRemote: jest.Mock;
+  pushBranchToRemote: jest.Mock;
+};
+
 const tempEditor = jest.requireMock("../tempMarkdownEditor") as {
   editMarkdownViaTempFile: jest.Mock;
 };
@@ -92,5 +97,54 @@ describe("createPullRequest cancel confirmation", () => {
     await createPullRequest({} as vscode.SecretStorage);
 
     expect(api.createPullRequestApi).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops before collecting PR details when the user cancels the remote push step", async () => {
+    git.branchExistsOnRemote.mockResolvedValueOnce(false);
+    (vscode.window.showQuickPick as jest.Mock).mockReset();
+    (vscode.window.showQuickPick as jest.Mock)
+      .mockResolvedValueOnce({ label: "Cancel", action: "cancel" });
+
+    await createPullRequest({} as vscode.SecretStorage);
+
+    expect(git.pushBranchToRemote).not.toHaveBeenCalled();
+    expect(vscode.window.showInputBox).not.toHaveBeenCalled();
+    expect(api.createPullRequestApi).not.toHaveBeenCalled();
+  });
+
+  it("pushes the branch and continues when the user accepts the remote push step", async () => {
+    git.branchExistsOnRemote.mockResolvedValueOnce(false);
+    api.createPullRequestApi.mockResolvedValue({ pullRequestId: 99 });
+    (vscode.window.showQuickPick as jest.Mock).mockReset();
+    (vscode.window.showQuickPick as jest.Mock)
+      .mockResolvedValueOnce({
+        label: "Push branch to origin and continue",
+        action: "push",
+      })
+      .mockResolvedValueOnce({ label: "No", value: false });
+
+    await createPullRequest({} as vscode.SecretStorage);
+
+    expect(git.pushBranchToRemote).toHaveBeenCalledWith("feature/my-branch");
+    expect(api.createPullRequestApi).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows an error and stops when pushing the remote branch fails", async () => {
+    git.branchExistsOnRemote.mockResolvedValueOnce(false);
+    git.pushBranchToRemote.mockResolvedValueOnce(false);
+    (vscode.window.showQuickPick as jest.Mock).mockReset();
+    (vscode.window.showQuickPick as jest.Mock)
+      .mockResolvedValueOnce({
+        label: "Push branch to origin and continue",
+        action: "push",
+      });
+
+    await createPullRequest({} as vscode.SecretStorage);
+
+    expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+      'Failed to push "feature/my-branch" to origin.',
+    );
+    expect(vscode.window.showInputBox).not.toHaveBeenCalled();
+    expect(api.createPullRequestApi).not.toHaveBeenCalled();
   });
 });
