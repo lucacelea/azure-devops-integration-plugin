@@ -344,6 +344,9 @@ export class PullRequestTreeProvider implements vscode.TreeDataProvider<PullRequ
             for (const thread of pr.commentThreads) {
                 const previousCommentId = previousThreads.get(thread.threadId);
                 if (previousCommentId === undefined || thread.latestCommentId > previousCommentId) {
+                    if (thread.latestCommentAuthorId && thread.latestCommentAuthorId === this.cachedUserId) {
+                        continue;
+                    }
                     events.push({ org, pr, thread });
                 }
             }
