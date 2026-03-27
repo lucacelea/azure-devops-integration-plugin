@@ -418,7 +418,20 @@ export class PullRequestTreeProvider implements vscode.TreeDataProvider<PullRequ
         if (!fetched) { return; }
 
         const { createdByMe, assignedToMe, assignedToMyTeams } = fetched.result;
-        await this.checkForNewComments([...createdByMe, ...assignedToMe, ...assignedToMyTeams]);
+        const scope = vscode.workspace
+            .getConfiguration('azureDevops')
+            .get<string>('notificationScope', 'all');
+
+        let prsForNotifications: EnrichedPullRequest[];
+        if (scope === 'off') {
+            prsForNotifications = [];
+        } else if (scope === 'participating') {
+            prsForNotifications = [...createdByMe, ...assignedToMe];
+        } else {
+            prsForNotifications = [...createdByMe, ...assignedToMe, ...assignedToMyTeams];
+        }
+
+        await this.checkForNewComments(prsForNotifications);
         this.refresh();
     }
 

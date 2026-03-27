@@ -408,6 +408,17 @@
           "type": "boolean",
           "default": true,
           "description": "Enable desktop notifications for new unresolved comments on pull requests."
+        },
+        "azureDevops.notificationScope": {
+          "type": "string",
+          "enum": ["all", "participating", "off"],
+          "enumDescriptions": [
+            "Show notifications for all visible pull requests",
+            "Show notifications only for pull requests you created or are assigned to",
+            "Disable all notifications"
+          ],
+          "default": "all",
+          "description": "Controls which pull requests trigger comment notifications."
         }
       }
     }
