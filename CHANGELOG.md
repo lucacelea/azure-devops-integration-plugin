@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Cancel PR creation from the description editor**: after closing the description editor, a confirmation dialog now appears before the pull request is submitted. Choosing "Cancel" exits the flow cleanly without creating anything.
 ### Fixed
 
 - **Self-authored comments no longer trigger notifications**: comment notifications are now suppressed when the latest comment in a thread was written by the current user, eliminating noise from your own replies and new threads.

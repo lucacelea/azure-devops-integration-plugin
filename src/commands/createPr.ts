@@ -319,6 +319,16 @@ export async function createPullRequest(
       },
     );
 
+    const confirm = await vscode.window.showInformationMessage(
+      "Ready to create pull request?",
+      { modal: false },
+      "Create PR",
+      "Cancel",
+    );
+    if (confirm !== "Create PR") {
+      return;
+    }
+
     // Create via API
     const pr = await vscode.window.withProgress(
       {
