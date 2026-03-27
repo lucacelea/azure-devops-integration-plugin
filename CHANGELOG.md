@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Remote branch check before PR creation**: when creating a pull request, the extension now checks whether the current branch has been pushed to `origin`. If it hasn't, you are offered a "Push & Continue" option that pushes the branch before proceeding, or "Cancel" to exit — instead of discovering the problem after filling out all the PR fields.
+
 ## [0.6.0] - 2026-03-22
 
 ### Added
