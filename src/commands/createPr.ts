@@ -3,7 +3,7 @@ import { readFile } from "fs/promises";
 import { execFile } from "child_process";
 import * as path from "path";
 import { getDevOpsConfig, getBaseUrl, getWorkItemProject } from "../config";
-import { getCurrentBranch, getDefaultBranch, getRepositoryRoot } from "../git";
+import { getCurrentBranch, getDefaultBranch, getRepositoryRoot, branchExistsOnRemote, pushBranchToRemote } from "../git";
 import { getWorkItemId } from "../workItem";
 import { getToken } from "../auth";
 import { editMarkdownViaTempFile } from "../tempMarkdownEditor";
@@ -194,6 +194,31 @@ export async function createPullRequest(
       return;
     }
 
+    const onRemote = await branchExistsOnRemote(branch);
+    if (!onRemote) {
+      const choice = await vscode.window.showWarningMessage(
+        `Branch "${branch}" has not been pushed to origin.`,
+        "Push & Continue",
+        "Cancel",
+      );
+      if (choice !== "Push & Continue") {
+        return;
+      }
+      const pushed = await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: `Pushing "${branch}" to origin...`,
+        },
+        () => pushBranchToRemote(branch),
+      );
+      if (!pushed) {
+        vscode.window.showErrorMessage(
+          `Failed to push "${branch}" to origin.`,
+        );
+        return;
+      }
+    }
+
     const defaultBranch = await getDefaultBranch();
     if (branch === defaultBranch) {
       const choice = await vscode.window.showWarningMessage(
@@ -315,9 +340,18 @@ export async function createPullRequest(
       {
         infoMessage:
           "Edit the PR description, then close the tab to submit. Clear all text to skip.",
-        openWhenEmpty: false,
       },
     );
+
+    const confirm = await vscode.window.showInformationMessage(
+      "Ready to create pull request?",
+      { modal: false },
+      "Create PR",
+      "Cancel",
+    );
+    if (confirm !== "Create PR") {
+      return;
+    }
 
     // Create via API
     const pr = await vscode.window.withProgress(
