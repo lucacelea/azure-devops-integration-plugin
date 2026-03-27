@@ -41,3 +41,20 @@ export async function getRepositoryRoot(): Promise<string | undefined> {
 export async function getRemoteUrl(): Promise<string | undefined> {
     return runGitCommand('git remote get-url origin');
 }
+
+export async function branchExistsOnRemote(branch: string): Promise<boolean> {
+    const result = await runGitCommand(`git ls-remote --heads origin ${branch}`);
+    return result !== undefined && result.length > 0;
+}
+
+export async function pushBranchToRemote(branch: string): Promise<boolean> {
+    const cwd = getWorkspaceFolder();
+    if (!cwd) {
+        return false;
+    }
+    return new Promise((resolve) => {
+        exec(`git push -u origin ${branch}`, { cwd }, (error) => {
+            resolve(!error);
+        });
+    });
+}
