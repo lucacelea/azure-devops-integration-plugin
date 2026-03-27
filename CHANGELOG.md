@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Cancel PR creation from the description editor**: after closing the description editor, a confirmation dialog now appears before the pull request is submitted. Choosing "Cancel" exits the flow cleanly without creating anything.
+
 ## [0.6.0] - 2026-03-22
 
 ### Added
