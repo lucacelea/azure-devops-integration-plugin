@@ -315,7 +315,6 @@ export async function createPullRequest(
       {
         infoMessage:
           "Edit the PR description, then close the tab to submit. Clear all text to skip.",
-        openWhenEmpty: false,
       },
     );
 
