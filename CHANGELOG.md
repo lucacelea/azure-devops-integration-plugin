@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-03-27
+
 ### Added
 
 - **Configurable notification scope**: new `azureDevops.notificationScope` setting controls which pull requests trigger comment notifications. Set to `"participating"` to limit notifications to PRs you created or are assigned to, or `"off"` to silence all notifications. Defaults to `"all"` (current behaviour).
