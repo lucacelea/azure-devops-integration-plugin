@@ -7,14 +7,45 @@ export interface TempMarkdownEditorOptions {
   infoMessage?: string;
   openWhenEmpty?: boolean;
   filePrefix?: string;
+  confirmActionLabel?: string;
+  cancelActionLabel?: string;
+  showCancellableNotification?: string;
+}
+
+export interface TempEditorCancelPromptOptions {
+  infoAction: string;
+  cancelLabel: string;
+}
+
+export function buildTempEditorCancelPrompt(
+  options: TempEditorCancelPromptOptions,
+): Pick<TempMarkdownEditorOptions, 'infoMessage' | 'confirmActionLabel' | 'cancelActionLabel'> {
+  return {
+    infoMessage: `Open the PR description in a temporary tab. Close that tab to continue, or cancel ${options.infoAction} now.`,
+    confirmActionLabel: "Open Editor",
+    cancelActionLabel: options.cancelLabel,
+  };
 }
 
 export async function editMarkdownViaTempFile(
   initialContent: string,
   options?: TempMarkdownEditorOptions,
-): Promise<string> {
+): Promise<string | undefined> {
   if (!initialContent && options?.openWhenEmpty === false) {
     return "";
+  }
+
+  if (options?.infoMessage && options.cancelActionLabel && !options.showCancellableNotification) {
+    const confirmAction = options.confirmActionLabel ?? "Open Editor";
+    const selectedAction = await vscode.window.showInformationMessage(
+      options.infoMessage,
+      confirmAction,
+      options.cancelActionLabel,
+    );
+
+    if (selectedAction !== confirmAction) {
+      return undefined;
+    }
   }
 
   const tmpPath = path.join(
@@ -28,12 +59,24 @@ export async function editMarkdownViaTempFile(
   const doc = await vscode.workspace.openTextDocument(tmpUri);
   await vscode.window.showTextDocument(doc);
 
-  vscode.window.showInformationMessage(
-    options?.infoMessage ??
-      "Edit the markdown content, then close the tab to submit.",
-  );
+  if (options?.infoMessage && !options.cancelActionLabel) {
+    void vscode.window.showInformationMessage(options.infoMessage);
+  }
 
   let latestContent = initialContent;
+  let wasCancelled = false;
+  let isFinished = false;
+
+  const finish = async (result: string | undefined): Promise<void> => {
+    if (isFinished) {
+      return;
+    }
+
+    isFinished = true;
+    changeDisposable.dispose();
+    resolvePromise?.(result);
+    await unlink(tmpPath).catch(() => {});
+  };
 
   const changeDisposable = vscode.workspace.onDidChangeTextDocument((e) => {
     if (
@@ -45,7 +88,27 @@ export async function editMarkdownViaTempFile(
     }
   });
 
-  return new Promise<string>((resolve) => {
+  let resolvePromise: ((value: string | undefined) => void) | undefined;
+
+  return new Promise<string | undefined>((resolve) => {
+    resolvePromise = resolve;
+
+    if (options?.showCancellableNotification) {
+      vscode.window.showInformationMessage(
+        options.showCancellableNotification,
+        options.cancelActionLabel || "Cancel",
+      ).then((result) => {
+        if (result === (options.cancelActionLabel || "Cancel")) {
+          wasCancelled = true;
+          void vscode.window.showTextDocument(doc).then(async () => {
+            await vscode.commands.executeCommand(
+              "workbench.action.closeActiveEditor",
+            );
+          });
+        }
+      });
+    }
+
     const tabDisposable = vscode.window.tabGroups.onDidChangeTabs(async (e) => {
       for (const tab of e.closed) {
         if (
@@ -53,9 +116,7 @@ export async function editMarkdownViaTempFile(
           tab.input.uri.fsPath === normalizedPath
         ) {
           tabDisposable.dispose();
-          changeDisposable.dispose();
-          resolve(latestContent.trim());
-          await unlink(tmpPath).catch(() => {});
+          await finish(wasCancelled ? undefined : latestContent.trim());
           return;
         }
       }

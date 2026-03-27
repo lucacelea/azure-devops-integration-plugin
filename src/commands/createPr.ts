@@ -3,7 +3,13 @@ import { readFile } from "fs/promises";
 import { execFile } from "child_process";
 import * as path from "path";
 import { getDevOpsConfig, getBaseUrl, getWorkItemProject } from "../config";
-import { getCurrentBranch, getDefaultBranch, getRepositoryRoot, branchExistsOnRemote, pushBranchToRemote } from "../git";
+import {
+  getCurrentBranch,
+  getDefaultBranch,
+  getRepositoryRoot,
+  branchExistsOnRemote,
+  pushBranchToRemote,
+} from "../git";
 import { getWorkItemId } from "../workItem";
 import { getToken } from "../auth";
 import { editMarkdownViaTempFile } from "../tempMarkdownEditor";
@@ -154,10 +160,7 @@ export function buildDefaultPullRequestTitle(
 
   const normalizedTitle = titleSource
     .replace(/^(?:feature|bugfix|hotfix|fix|task|chore)\//, "")
-    .replace(
-      /^\d+[-_]?/,
-      workItemId !== undefined ? `AB#${workItemId} ` : "",
-    )
+    .replace(/^\d+[-_]?/, workItemId !== undefined ? `AB#${workItemId} ` : "")
     .replace(/[-_]/g, " ")
     .trim();
 
@@ -212,9 +215,7 @@ export async function createPullRequest(
         () => pushBranchToRemote(branch),
       );
       if (!pushed) {
-        vscode.window.showErrorMessage(
-          `Failed to push "${branch}" to origin.`,
-        );
+        vscode.window.showErrorMessage(`Failed to push "${branch}" to origin.`);
         return;
       }
     }
@@ -335,21 +336,18 @@ export async function createPullRequest(
       template,
       selectedWorkItemTitles,
     );
+
     const description = await editMarkdownViaTempFile(
       templateWithWorkItems ?? "",
       {
-        infoMessage:
-          "Edit the PR description, then close the tab to submit. Clear all text to skip.",
+        infoMessage: "Edit the PR description, then close the tab to submit.",
+        showCancellableNotification:
+          "Editing PR description — close the tab to submit, or click Cancel to abort.",
+        cancelActionLabel: "Cancel",
       },
     );
 
-    const confirm = await vscode.window.showInformationMessage(
-      "Ready to create pull request?",
-      { modal: false },
-      "Create PR",
-      "Cancel",
-    );
-    if (confirm !== "Create PR") {
+    if (description === undefined) {
       return;
     }
 

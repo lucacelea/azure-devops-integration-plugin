@@ -55,7 +55,7 @@ describe("editExistingPrDescription", () => {
     tempEditor.editMarkdownViaTempFile.mockReset();
     (vscode.window.showQuickPick as jest.Mock).mockReset();
     (vscode.window.showErrorMessage as jest.Mock).mockReset();
-    (vscode.window.showInformationMessage as jest.Mock).mockReset();
+    (vscode.window.showInformationMessage as jest.Mock).mockResolvedValue("Open Editor");
     (vscode.window.withProgress as jest.Mock).mockClear();
   });
 
@@ -123,6 +123,15 @@ describe("editExistingPrDescription", () => {
       7,
       "token",
     );
+    expect(tempEditor.editMarkdownViaTempFile).toHaveBeenCalledWith("", 
+      expect.objectContaining({
+        infoMessage: "Edit the PR description, then close the tab to submit.",
+        openWhenEmpty: true,
+        filePrefix: "pr-7-description",
+        showCancellableNotification: "Editing PR description — close the tab to submit, or click Cancel to abort.",
+        cancelActionLabel: "Cancel",
+      }),
+    );
     expect(api.updatePullRequestDescription).toHaveBeenCalledWith(
       "sidebar-org",
       "proj",
@@ -182,6 +191,31 @@ describe("editExistingPrDescription", () => {
     });
     api.getPullRequestDetails.mockResolvedValue({ description: "Current description\n" });
     tempEditor.editMarkdownViaTempFile.mockResolvedValue("Current description");
+
+    await editExistingPrDescription(provider);
+
+    expect(api.updatePullRequestDescription).not.toHaveBeenCalled();
+    expect(provider.refresh).not.toHaveBeenCalled();
+  });
+
+  it("skips the update when the temp editor is canceled", async () => {
+    const pr = makePr();
+    const provider = {
+      secretStorage: {},
+      getCreatedByMePullRequests: jest
+        .fn()
+        .mockResolvedValue({ org: "org", pullRequests: [pr] }),
+      refresh: jest.fn(),
+    } as any;
+
+    (vscode.window.showQuickPick as jest.Mock).mockResolvedValue({
+      label: pr.title,
+      description: "#42 · repo",
+      detail: "Branch: feature/branch",
+      pr,
+    });
+    api.getPullRequestDetails.mockResolvedValue({ description: "Current description" });
+    tempEditor.editMarkdownViaTempFile.mockResolvedValue(undefined);
 
     await editExistingPrDescription(provider);
 

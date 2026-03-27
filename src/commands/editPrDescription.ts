@@ -116,10 +116,16 @@ export async function editExistingPrDescription(
 
     const editedDescription = await editMarkdownViaTempFile(currentDescription, {
       infoMessage:
-        "Edit the PR description, then close the tab to submit. Clear all text to remove it.",
+        "Edit the PR description, then close the tab to submit.",
       openWhenEmpty: true,
       filePrefix: `pr-${context.pr.pullRequestId}-description`,
+      showCancellableNotification: "Editing PR description — close the tab to submit, or click Cancel to abort.",
+      cancelActionLabel: "Cancel",
     });
+
+    if (editedDescription === undefined) {
+      return;
+    }
 
     if (editedDescription === currentDescription.trim()) {
       return;
