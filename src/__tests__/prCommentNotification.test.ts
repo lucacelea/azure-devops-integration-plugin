@@ -139,6 +139,32 @@ describe('PullRequestTreeProvider.checkForNewComments', () => {
         expect(openInDevOps).not.toHaveBeenCalled();
     });
 
+    it('does not notify when the latest comment was authored by the current user', async () => {
+        provider.cachedUserId = 'current-user-id';
+
+        await provider.checkForNewComments([makePr(1, 'My PR', 1, [makeThread(10, 100)])]);
+        await provider.checkForNewComments([
+            makePr(1, 'My PR', 1, [makeThread(10, 101, { latestCommentAuthorId: 'current-user-id' })]),
+        ]);
+
+        expect(showInfoMock).not.toHaveBeenCalled();
+    });
+
+    it('notifies when the latest comment was authored by a different user', async () => {
+        provider.cachedUserId = 'current-user-id';
+
+        await provider.checkForNewComments([makePr(1, 'My PR', 1, [makeThread(10, 100)])]);
+        await provider.checkForNewComments([
+            makePr(1, 'My PR', 1, [makeThread(10, 101, { latestCommentAuthorId: 'other-user-id' })]),
+        ]);
+
+        expect(showInfoMock).toHaveBeenCalledWith(
+            'New comments on PR #1: My PR',
+            'Open Comment',
+            'Open in DevOps'
+        );
+    });
+
     it('invokes the open in DevOps handler when selected', async () => {
         showInfoMock.mockResolvedValue('Open in DevOps');
 
