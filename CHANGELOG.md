@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Self-authored comments no longer trigger notifications**: comment notifications are now suppressed when the latest comment in a thread was written by the current user, eliminating noise from your own replies and new threads.
+
 ## [0.6.0] - 2026-03-22
 
 ### Added
