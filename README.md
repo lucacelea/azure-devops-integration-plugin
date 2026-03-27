@@ -104,7 +104,6 @@ All settings are optional — the extension auto-detects values from your git re
 | `azureDevops.pullRequestRefreshInterval` | `60` | Auto-refresh interval in seconds (minimum 30) |
 | `azureDevops.pullRequestAutoOpenInBrowser` | `false` | Automatically open the pull request in the browser after creation |
 | `azureDevops.richCopyUrl` | `false` | Copy a rich link with the PR title when copying the pull request URL |
-| `azureDevops.enableNotifications` | `true` | Enable desktop notifications for new PR discussion activity |
 | `azureDevops.notificationScope` | `all` | Which PRs trigger notifications: `all` (all visible PRs), `participating` (only PRs you created or are assigned to), or `off` (no notifications) |
 
 ## Requirements

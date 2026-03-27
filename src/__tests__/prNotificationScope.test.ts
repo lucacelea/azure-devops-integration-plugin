@@ -62,8 +62,6 @@ describe('PullRequestTreeProvider.pollForNewComments — notificationScope', () 
         getConfigMock.mockReturnValue({
             get: jest.fn().mockImplementation((key: string, defaultValue?: unknown) => {
                 if (key === 'notificationScope') { return scope; }
-                // enableNotifications defaults to true
-                if (key === 'enableNotifications') { return true; }
                 return defaultValue;
             }),
         });

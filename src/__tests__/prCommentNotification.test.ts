@@ -116,18 +116,6 @@ describe('PullRequestTreeProvider.checkForNewComments', () => {
         expect(showInfoMock).not.toHaveBeenCalled();
     });
 
-    it('does not notify when enableNotifications is false', async () => {
-        const getConfigMock = vscode.workspace.getConfiguration as jest.Mock;
-        getConfigMock.mockReturnValue({
-            get: jest.fn().mockReturnValue(false),
-        });
-
-        await provider.checkForNewComments([makePr(1, 'My PR', 1, [makeThread(10, 100)])]);
-        await provider.checkForNewComments([makePr(1, 'My PR', 1, [makeThread(10, 101)])]);
-
-        expect(showInfoMock).not.toHaveBeenCalled();
-    });
-
     it('invokes the open comment handler when selected', async () => {
         showInfoMock.mockResolvedValue('Open Comment');
 

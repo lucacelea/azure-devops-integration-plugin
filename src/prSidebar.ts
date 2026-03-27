@@ -364,14 +364,6 @@ export class PullRequestTreeProvider implements vscode.TreeDataProvider<PullRequ
         this.previousThreadSnapshot = newSnapshot;
         this.initialized = true;
 
-        const notificationsEnabled = vscode.workspace
-            .getConfiguration('azureDevops')
-            .get<boolean>('enableNotifications', true);
-
-        if (!notificationsEnabled) {
-            return;
-        }
-
         if (newCommentEvents.length === 1) {
             const event = newCommentEvents[0];
             const selection = await vscode.window.showInformationMessage(

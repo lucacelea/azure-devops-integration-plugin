@@ -404,11 +404,6 @@
           "default": false,
           "description": "Copy rich link with PR title to clipboard when copying pull request URL."
         },
-        "azureDevops.enableNotifications": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable desktop notifications for new unresolved comments on pull requests."
-        },
         "azureDevops.notificationScope": {
           "type": "string",
           "enum": ["all", "participating", "off"],
