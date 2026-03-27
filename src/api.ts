@@ -134,6 +134,7 @@ export interface PrThreadSummary {
     filePath?: string;
     line?: number;
     latestCommentId: number;
+    latestCommentAuthorId?: string;
 }
 
 async function getCommentThreadSummary(
@@ -158,7 +159,7 @@ async function getCommentThreadSummary(
                 rightFileStart?: { line: number };
                 leftFileStart?: { line: number };
             };
-            comments: Array<{ id: number; commentType: string; isDeleted: boolean }>;
+            comments: Array<{ id: number; commentType: string; isDeleted: boolean; author?: { id: string } }>;
         }>;
         const visibleThreads = threads
             .filter((t) => !t.isDeleted)
@@ -171,12 +172,14 @@ async function getCommentThreadSummary(
                 }
 
                 const position = thread.threadContext?.rightFileStart ?? thread.threadContext?.leftFileStart;
+                const lastComment = visibleComments[visibleComments.length - 1];
                 summaries.push({
                     threadId: thread.id,
                     status: thread.status,
                     filePath: thread.threadContext?.filePath,
                     line: position?.line,
-                    latestCommentId: visibleComments[visibleComments.length - 1].id,
+                    latestCommentId: lastComment.id,
+                    latestCommentAuthorId: lastComment.author?.id,
                 });
                 return summaries;
             }, []);
