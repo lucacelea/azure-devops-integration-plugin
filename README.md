@@ -66,6 +66,10 @@ Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/item
 
 ### 2. Set Up Authentication
 
+The extension supports two authentication methods:
+
+#### Option A: Personal Access Token (PAT) — default
+
 1. Generate a [Personal Access Token (PAT)](https://learn.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate) in Azure DevOps with the following scopes:
    - **Code**: Read
    - **Work Items**: Read
@@ -73,6 +77,14 @@ Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/item
 2. Run the command **Azure DevOps: Set Personal Access Token** and paste your token.
 
 Your PAT is stored securely using VS Code's built-in SecretStorage API.
+
+#### Option B: Azure AD / Microsoft Account (OAuth)
+
+1. Set `azureDevops.authMethod` to `azureAd` in your VS Code settings.
+2. Run the command **Azure DevOps: Login with Azure AD**.
+3. Follow the browser prompt to sign in with your Microsoft account.
+
+VS Code handles token refresh automatically. No PAT rotation is needed.
 
 ### 3. Open a Repository
 
@@ -89,6 +101,7 @@ All settings are optional — the extension auto-detects values from your git re
 
 | Setting | Default | Description |
 |---------|---------|-------------|
+| `azureDevops.authMethod` | `pat` | Authentication method: `pat` (Personal Access Token) or `azureAd` (Azure AD / Microsoft account) |
 | `azureDevops.organization` | Auto-detected | Azure DevOps organization name |
 | `azureDevops.project` | Auto-detected | Azure DevOps project name |
 | `azureDevops.repository` | Auto-detected | Azure DevOps repository name |
@@ -109,7 +122,7 @@ All settings are optional — the extension auto-detects values from your git re
 ## Requirements
 
 - VS Code 1.85.0 or later
-- An Azure DevOps account with a Personal Access Token
+- An Azure DevOps account with either a Personal Access Token or Azure AD / Microsoft account
 
 ## Development
 

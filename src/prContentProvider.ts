@@ -25,7 +25,7 @@ export class PrContentProvider implements vscode.TextDocumentContentProvider {
 
         const token = await getToken(this.secretStorage);
         if (!token) {
-            throw new Error('No PAT configured');
+            throw new Error('Not authenticated. Configure a PAT or sign in with Azure AD.');
         }
 
         return await getFileContent(org, project, repoId, filePath, commitId, token);

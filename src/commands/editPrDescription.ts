@@ -36,7 +36,7 @@ async function resolvePullRequestContext(
 ): Promise<ResolvedPullRequestContext | undefined> {
   const token = await getToken(provider.secretStorage);
   if (!token) {
-    vscode.window.showErrorMessage("No PAT configured.");
+    vscode.window.showErrorMessage("Not authenticated. Configure a PAT or sign in with Azure AD.");
     return undefined;
   }
 

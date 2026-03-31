@@ -55,6 +55,14 @@
         "title": "Azure DevOps: Remove Personal Access Token"
       },
       {
+        "command": "azureDevops.loginAzureAd",
+        "title": "Azure DevOps: Login with Azure AD"
+      },
+      {
+        "command": "azureDevops.logoutAzureAd",
+        "title": "Azure DevOps: Logout from Azure AD"
+      },
+      {
         "command": "azureDevops.refreshPullRequests",
         "title": "Azure DevOps: Refresh Pull Requests",
         "icon": "$(refresh)"
@@ -316,6 +324,16 @@
     "configuration": {
       "title": "Azure DevOps",
       "properties": {
+        "azureDevops.authMethod": {
+          "type": "string",
+          "default": "pat",
+          "enum": ["pat", "azureAd"],
+          "enumDescriptions": [
+            "Personal Access Token (Basic auth)",
+            "Azure AD / Microsoft account (OAuth Bearer token)"
+          ],
+          "description": "Authentication method to use when connecting to Azure DevOps."
+        },
         "azureDevops.organization": {
           "type": "string",
           "default": "",

@@ -1,4 +1,5 @@
 import * as https from 'https';
+import { getConfiguredAuthMethod } from './auth';
 
 export interface PullRequest {
     pullRequestId: number;
@@ -87,9 +88,12 @@ export interface MyPullRequests {
     assignedToMyTeams: EnrichedPullRequest[];
 }
 
-function authHeaders(token: string): Record<string, string> {
+export function authHeaders(token: string): Record<string, string> {
+    const authorization = getConfiguredAuthMethod() === 'azureAd'
+        ? `Bearer ${token}`
+        : `Basic ${Buffer.from(':' + token).toString('base64')}`;
     return {
-        'Authorization': `Basic ${Buffer.from(':' + token).toString('base64')}`,
+        'Authorization': authorization,
         'Accept': 'application/json',
     };
 }

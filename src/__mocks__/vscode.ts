@@ -117,3 +117,6 @@ export const env = {
         writeText: jest.fn(),
     },
 };
+export const authentication = {
+    getSession: jest.fn().mockResolvedValue(undefined),
+};

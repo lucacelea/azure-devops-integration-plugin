@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { createPullRequest } from './commands/createPr';
 import { openRepository } from './commands/openRepo';
 import { openWorkItem } from './commands/openWorkItem';
-import { setToken, removeToken } from './auth';
+import { setToken, removeToken, loginWithAzureAd, logoutFromAzureAd } from './auth';
 import { createStatusBarItem } from './statusBar';
 import { registerPrSidebar, PrFilter, PrSort } from './prSidebar';
 import { registerPrActions } from './commands/prActions';
@@ -32,6 +32,14 @@ export function activate(context: vscode.ExtensionContext) {
         }),
         vscode.commands.registerCommand('azureDevops.removeToken', async () => {
             await removeToken(secretStorage);
+            prProvider.refresh();
+        }),
+        vscode.commands.registerCommand('azureDevops.loginAzureAd', async () => {
+            const ok = await loginWithAzureAd();
+            if (ok) { prProvider.refresh(); }
+        }),
+        vscode.commands.registerCommand('azureDevops.logoutAzureAd', async () => {
+            await logoutFromAzureAd();
             prProvider.refresh();
         }),
         vscode.commands.registerCommand('azureDevops.refreshPullRequests', () => prProvider.refresh()),
