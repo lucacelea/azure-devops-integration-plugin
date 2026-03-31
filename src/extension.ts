@@ -80,6 +80,21 @@ export function activate(context: vscode.ExtensionContext) {
                 prProvider.setSort(picked.value);
             }
         }),
+        vscode.commands.registerCommand('azureDevops.searchPullRequests', async () => {
+            const value = await vscode.window.showInputBox({
+                prompt: 'Search pull requests by title, author, branch, or ID',
+                placeHolder: 'Type to search...',
+                value: prProvider.getSearchText(),
+            });
+            if (value !== undefined) {
+                prProvider.setSearchText(value);
+                await vscode.commands.executeCommand('setContext', 'azureDevops.searchActive', value.length > 0);
+            }
+        }),
+        vscode.commands.registerCommand('azureDevops.clearSearchPullRequests', () => {
+            prProvider.clearSearchText();
+            vscode.commands.executeCommand('setContext', 'azureDevops.searchActive', false);
+        }),
     );
 
     // PR content provider for diff viewing (Phase 2)

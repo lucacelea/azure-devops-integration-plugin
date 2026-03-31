@@ -236,6 +236,7 @@ export class PullRequestTreeProvider implements vscode.TreeDataProvider<PullRequ
     public cachedOrg?: string;
     private currentFilter: PrFilter = 'all';
     private currentSort: PrSort = 'default';
+    private searchText: string = '';
     private previousThreadSnapshot: Map<number, Map<number, number>> = new Map();
     private commentNotificationHandlers?: CommentNotificationHandlers;
     private initialized = false;
@@ -257,6 +258,20 @@ export class PullRequestTreeProvider implements vscode.TreeDataProvider<PullRequ
     setSort(sort: PrSort): void {
         this.currentSort = sort;
         this._onDidChangeTreeData.fire();
+    }
+
+    setSearchText(text: string): void {
+        this.searchText = text;
+        this._onDidChangeTreeData.fire();
+    }
+
+    clearSearchText(): void {
+        this.searchText = '';
+        this._onDidChangeTreeData.fire();
+    }
+
+    getSearchText(): string {
+        return this.searchText;
     }
 
     setCommentNotificationHandlers(handlers: CommentNotificationHandlers): void {
@@ -287,25 +302,52 @@ export class PullRequestTreeProvider implements vscode.TreeDataProvider<PullRequ
             hasComments: 'Has unresolved comments',
             checksFailing: 'Checks failing',
         };
-        return labels[this.currentFilter];
+        const filterLabel = labels[this.currentFilter];
+        if (filterLabel && this.searchText) {
+            return `${filterLabel}, search: "${this.searchText}"`;
+        }
+        if (this.searchText) {
+            return `search: "${this.searchText}"`;
+        }
+        return filterLabel;
     }
 
     private filterPrs(prs: EnrichedPullRequest[]): EnrichedPullRequest[] {
+        let filtered: EnrichedPullRequest[];
         switch (this.currentFilter) {
             case 'draft':
-                return prs.filter(pr => pr.isDraft);
+                filtered = prs.filter(pr => pr.isDraft);
+                break;
             case 'needsMyVote':
-                return prs.filter(pr => {
+                filtered = prs.filter(pr => {
                     const myReview = pr.reviewers?.find(r => r.id === this.cachedUserId);
                     return myReview && myReview.vote === 0;
                 });
+                break;
             case 'hasComments':
-                return prs.filter(pr => pr.unresolvedCommentCount > 0);
+                filtered = prs.filter(pr => pr.unresolvedCommentCount > 0);
+                break;
             case 'checksFailing':
-                return prs.filter(pr => pr.checksStatus === 'failed');
+                filtered = prs.filter(pr => pr.checksStatus === 'failed');
+                break;
             default:
-                return prs;
+                filtered = prs;
         }
+        return this.textFilterPrs(filtered);
+    }
+
+    private textFilterPrs(prs: EnrichedPullRequest[]): EnrichedPullRequest[] {
+        if (!this.searchText) {
+            return prs;
+        }
+        const query = this.searchText.toLowerCase();
+        return prs.filter(pr => {
+            const title = pr.title.toLowerCase();
+            const author = pr.createdBy.displayName.toLowerCase();
+            const branch = (pr.sourceRefName ?? '').replace(/^refs\/heads\//, '').toLowerCase();
+            const id = String(pr.pullRequestId);
+            return title.includes(query) || author.includes(query) || branch.includes(query) || id.includes(query);
+        });
     }
 
     private sortPrs(prs: EnrichedPullRequest[]): EnrichedPullRequest[] {

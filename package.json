@@ -170,6 +170,16 @@
         "command": "azureDevops.addGeneralComment",
         "title": "Add Comment",
         "icon": "$(add)"
+      },
+      {
+        "command": "azureDevops.searchPullRequests",
+        "title": "Azure DevOps: Search Pull Requests",
+        "icon": "$(search)"
+      },
+      {
+        "command": "azureDevops.clearSearchPullRequests",
+        "title": "Azure DevOps: Clear Pull Request Search",
+        "icon": "$(close)"
       }
     ],
     "viewsContainers": {
@@ -227,6 +237,16 @@
         {
           "command": "azureDevops.sortPullRequests",
           "when": "view == azureDevops.pullRequests",
+          "group": "navigation"
+        },
+        {
+          "command": "azureDevops.searchPullRequests",
+          "when": "view == azureDevops.pullRequests",
+          "group": "navigation"
+        },
+        {
+          "command": "azureDevops.clearSearchPullRequests",
+          "when": "view == azureDevops.pullRequests && azureDevops.searchActive",
           "group": "navigation"
         },
         {
