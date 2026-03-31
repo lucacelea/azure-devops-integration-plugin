@@ -845,10 +845,11 @@ export async function getIterationWorkItems(
     const wiqlUrl =
         `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}` +
         `/_apis/wit/wiql?api-version=7.1`;
+    const sanitizedPath = iterationPath.replace(/'/g, "''");
     const wiqlBody = {
         query:
             "SELECT [System.Id] FROM WorkItems" +
-            ` WHERE [System.IterationPath] = '${iterationPath}'` +
+            ` WHERE [System.IterationPath] = '${sanitizedPath}'` +
             " AND [System.WorkItemType] IN ('User Story', 'Bug', 'Enabler')" +
             " AND [System.State] NOT IN ('Done', 'Closed', 'Removed')" +
             " ORDER BY [System.WorkItemType] ASC, [System.Title] ASC",

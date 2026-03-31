@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { createTaskForPr } from '../commands/createTask';
+import { createTaskForPr, formatBranchAsTitle } from '../commands/createTask';
 
 jest.mock('../config', () => ({
     getDevOpsConfig: jest.fn().mockResolvedValue({
@@ -207,5 +207,47 @@ describe('createTaskForPr', () => {
             'Task #999 created.',
             'Open in Browser',
         );
+    });
+});
+
+describe('formatBranchAsTitle', () => {
+    beforeEach(() => {
+        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
+            get: jest.fn().mockImplementation((_key: string, defaultValue?: unknown) => defaultValue),
+        });
+    });
+
+    it('returns empty string for undefined', () => {
+        expect(formatBranchAsTitle(undefined)).toBe('');
+    });
+
+    it('strips feature/ prefix and formats dashes', () => {
+        expect(formatBranchAsTitle('feature/add-login-page')).toBe('Add login page');
+    });
+
+    it('strips numeric work item ID prefix', () => {
+        expect(formatBranchAsTitle('feature/1234-fix-login')).toBe('Fix login');
+    });
+
+    it('strips bugfix/ prefix', () => {
+        expect(formatBranchAsTitle('bugfix/fix-null-ref')).toBe('Fix null ref');
+    });
+
+    it('handles plain branch names', () => {
+        expect(formatBranchAsTitle('my-cool-branch')).toBe('My cool branch');
+    });
+
+    it('replaces underscores with spaces', () => {
+        expect(formatBranchAsTitle('task/1234_update_tests')).toBe('Update tests');
+    });
+
+    it('strips configured branch prefix', () => {
+        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
+            get: jest.fn().mockImplementation((key: string, defaultValue?: unknown) => {
+                if (key === 'branchPrefix') { return 'lucac/'; }
+                return defaultValue;
+            }),
+        });
+        expect(formatBranchAsTitle('lucac/feature/my-work')).toBe('My work');
     });
 });

@@ -13,6 +13,28 @@ import {
     WorkItem,
 } from '../api';
 
+const BRANCH_TYPE_PREFIXES = /^(?:feature|bugfix|hotfix|fix|task|chore)\//;
+
+export function formatBranchAsTitle(branch: string | undefined): string {
+    if (!branch) {
+        return '';
+    }
+
+    const branchPrefix = vscode.workspace.getConfiguration('azureDevops')
+        .get<string>('branchPrefix', '');
+
+    let subject = branch;
+    if (branchPrefix && subject.startsWith(branchPrefix)) {
+        subject = subject.slice(branchPrefix.length);
+    }
+
+    subject = subject.replace(BRANCH_TYPE_PREFIXES, '');
+    subject = subject.replace(/^\d+[-_]/, '');
+    subject = subject.replace(/[-_]/g, ' ');
+
+    return subject.charAt(0).toUpperCase() + subject.slice(1);
+}
+
 export async function createTaskForPr(
     secretStorage: vscode.SecretStorage,
 ): Promise<void> {
@@ -36,7 +58,8 @@ export async function createTaskForPr(
         }
 
         const project = await getWorkItemProject();
-        const team = `${project} Team`;
+        const team = vscode.workspace.getConfiguration('azureDevops')
+            .get<string>('team', '') || `${project} Team`;
 
         // Fetch current iteration
         const iteration = await vscode.window.withProgress(
@@ -87,7 +110,7 @@ export async function createTaskForPr(
 
         // Prompt for task title
         const branch = await getCurrentBranch();
-        const defaultTitle = branch ?? '';
+        const defaultTitle = formatBranchAsTitle(branch);
 
         const taskTitle = await vscode.window.showInputBox({
             prompt: 'Task title',

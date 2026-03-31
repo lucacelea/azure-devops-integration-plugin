@@ -418,6 +418,11 @@
           ],
           "default": "all",
           "description": "Controls which pull requests trigger comment notifications."
+        },
+        "azureDevops.team": {
+          "type": "string",
+          "default": "",
+          "description": "Azure DevOps team name used for sprint/iteration queries. Defaults to '{project} Team' if not set."
         }
       }
     }
