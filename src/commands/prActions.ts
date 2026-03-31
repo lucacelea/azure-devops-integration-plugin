@@ -197,11 +197,11 @@ export function registerPrActions(
 
                 if (!selected) { return; }
 
+                // Build name-to-id lookup for O(1) resolution
+                const nameToId = new Map(candidates.map(c => [c.displayName, c.id]));
                 const selectedIds = new Set(
-                    selected.map(s => {
-                        const match = candidates.find(c => c.displayName === s.label);
-                        return match?.id;
-                    }).filter((id): id is string => !!id)
+                    selected.map(s => nameToId.get(s.label))
+                        .filter((id): id is string => !!id)
                 );
 
                 // Add new reviewers
