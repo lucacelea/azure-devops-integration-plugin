@@ -170,6 +170,10 @@
         "command": "azureDevops.addGeneralComment",
         "title": "Add Comment",
         "icon": "$(add)"
+      },
+      {
+        "command": "azureDevops.createTaskForPr",
+        "title": "Azure DevOps: Create Task for PR"
       }
     ],
     "viewsContainers": {

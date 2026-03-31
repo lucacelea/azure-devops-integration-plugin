@@ -815,3 +815,149 @@ export async function getFileContent(
     const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/items?path=${encodeURIComponent(path)}&versionDescriptor.version=${commitId}&versionDescriptor.versionType=commit&$format=text&api-version=7.1`;
     return await httpsGet(url, authHeaders(token));
 }
+
+// --- Sprint task creation APIs ---
+
+export interface Iteration {
+    id: string;
+    name: string;
+    path: string;
+}
+
+export async function getCurrentIteration(
+    org: string, project: string, team: string, token: string
+): Promise<Iteration | undefined> {
+    const url =
+        `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/${encodeURIComponent(team)}` +
+        `/_apis/work/teamsettings/iterations?$timeframe=current&api-version=7.1`;
+    const body = await httpsGet(url, authHeaders(token));
+    const data = JSON.parse(body);
+    const iterations = data.value as Array<{ id: string; name: string; path: string }>;
+    if (iterations.length === 0) {
+        return undefined;
+    }
+    return { id: iterations[0].id, name: iterations[0].name, path: iterations[0].path };
+}
+
+export async function getIterationWorkItems(
+    org: string, project: string, iterationPath: string, token: string
+): Promise<WorkItem[]> {
+    const wiqlUrl =
+        `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}` +
+        `/_apis/wit/wiql?api-version=7.1`;
+    const wiqlBody = {
+        query:
+            "SELECT [System.Id] FROM WorkItems" +
+            ` WHERE [System.IterationPath] = '${iterationPath}'` +
+            " AND [System.WorkItemType] IN ('User Story', 'Bug', 'Enabler')" +
+            " AND [System.State] NOT IN ('Done', 'Closed', 'Removed')" +
+            " ORDER BY [System.WorkItemType] ASC, [System.Title] ASC",
+    };
+    const wiqlResponse = await httpsRequest(wiqlUrl, 'POST', authHeaders(token), wiqlBody);
+    const wiqlData = JSON.parse(wiqlResponse);
+    const workItemIds: number[] = (wiqlData.workItems as Array<{ id: number }>).map((wi) => wi.id);
+
+    if (workItemIds.length === 0) {
+        return [];
+    }
+
+    const batchSize = 200;
+    const allWorkItems: WorkItem[] = [];
+    for (let i = 0; i < workItemIds.length; i += batchSize) {
+        const batch = workItemIds.slice(i, i + batchSize);
+        const batchUrl =
+            `https://dev.azure.com/${encodeURIComponent(org)}/_apis/wit/workitems` +
+            `?ids=${batch.join(',')}&fields=System.Id,System.Title,System.State,System.WorkItemType&api-version=7.1`;
+        const batchResponse = await httpsGet(batchUrl, authHeaders(token));
+        const batchData = JSON.parse(batchResponse);
+        for (const item of batchData.value as Array<{ id: number; fields: Record<string, string> }>) {
+            allWorkItems.push({
+                id: item.id,
+                title: item.fields['System.Title'] ?? '',
+                state: item.fields['System.State'] ?? '',
+                type: item.fields['System.WorkItemType'] ?? '',
+            });
+        }
+    }
+
+    return allWorkItems;
+}
+
+export interface CreateWorkItemOptions {
+    org: string;
+    project: string;
+    title: string;
+    iterationPath: string;
+    parentId: number;
+    assignTo?: string;
+    token: string;
+}
+
+export async function createWorkItem(options: CreateWorkItemOptions): Promise<{ id: number; url: string }> {
+    const { org, project, token, ...fields } = options;
+    const url =
+        `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}` +
+        `/_apis/wit/workitems/$Task?api-version=7.1`;
+
+    const patchOps: Array<{ op: string; path: string; value: unknown }> = [
+        { op: 'add', path: '/fields/System.Title', value: fields.title },
+        { op: 'add', path: '/fields/System.IterationPath', value: fields.iterationPath },
+        {
+            op: 'add',
+            path: '/relations/-',
+            value: {
+                rel: 'System.LinkTypes.Hierarchy-Reverse',
+                url: `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/wit/workitems/${fields.parentId}`,
+            },
+        },
+    ];
+
+    if (fields.assignTo) {
+        patchOps.push({ op: 'add', path: '/fields/System.AssignedTo', value: fields.assignTo });
+    }
+
+    const response = await httpsRequest(url, 'POST', {
+        ...authHeaders(token),
+        'Content-Type': 'application/json-patch+json',
+    }, patchOps);
+
+    const data = JSON.parse(response);
+    return { id: data.id, url: data._links?.html?.href ?? data.url };
+}
+
+export async function findPullRequestForBranch(
+    org: string, project: string, repoId: string, branch: string, token: string
+): Promise<PullRequest | undefined> {
+    const searchParams = `searchCriteria.sourceRefName=refs/heads/${encodeURIComponent(branch)}&searchCriteria.status=active`;
+    const url =
+        `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}` +
+        `/_apis/git/repositories/${repoId}/pullRequests?${searchParams}&api-version=7.1`;
+    const body = await httpsGet(url, authHeaders(token));
+    const data = JSON.parse(body);
+    const prs = data.value as PullRequest[];
+    return prs.length > 0 ? prs[0] : undefined;
+}
+
+export async function linkWorkItemToPullRequest(
+    org: string, project: string, workItemId: number, prUrl: string, token: string
+): Promise<void> {
+    const url =
+        `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}` +
+        `/_apis/wit/workitems/${workItemId}?api-version=7.1`;
+    await httpsRequest(url, 'PATCH', {
+        ...authHeaders(token),
+        'Content-Type': 'application/json-patch+json',
+    }, [
+        {
+            op: 'add',
+            path: '/relations/-',
+            value: {
+                rel: 'ArtifactLink',
+                url: prUrl,
+                attributes: {
+                    name: 'Pull Request',
+                },
+            },
+        },
+    ]);
+}
