@@ -91,9 +91,9 @@ export function activate(context: vscode.ExtensionContext) {
                 await vscode.commands.executeCommand('setContext', 'azureDevops.searchActive', value.length > 0);
             }
         }),
-        vscode.commands.registerCommand('azureDevops.clearSearchPullRequests', () => {
+        vscode.commands.registerCommand('azureDevops.clearSearchPullRequests', async () => {
             prProvider.clearSearchText();
-            vscode.commands.executeCommand('setContext', 'azureDevops.searchActive', false);
+            await vscode.commands.executeCommand('setContext', 'azureDevops.searchActive', false);
         }),
     );
 
