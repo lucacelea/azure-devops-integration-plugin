@@ -162,6 +162,18 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('azureDevops.replyToDiscussionThread', (item: PrDiscussionItem) => {
             return prDiscussionProvider.replyToDiscussionThread(item);
         }),
+        vscode.commands.registerCommand('azureDevops.resolveThread', (item: PrDiscussionItem) => {
+            return prDiscussionProvider.changeThreadStatus(item, 'fixed').then(() => prCommentController.refreshAll());
+        }),
+        vscode.commands.registerCommand('azureDevops.wontFixThread', (item: PrDiscussionItem) => {
+            return prDiscussionProvider.changeThreadStatus(item, 'wontFix').then(() => prCommentController.refreshAll());
+        }),
+        vscode.commands.registerCommand('azureDevops.byDesignThread', (item: PrDiscussionItem) => {
+            return prDiscussionProvider.changeThreadStatus(item, 'byDesign').then(() => prCommentController.refreshAll());
+        }),
+        vscode.commands.registerCommand('azureDevops.reactivateThread', (item: PrDiscussionItem) => {
+            return prDiscussionProvider.changeThreadStatus(item, 'active').then(() => prCommentController.refreshAll());
+        }),
         vscode.commands.registerCommand('azureDevops.addGeneralComment', () => {
             return prDiscussionProvider.addGeneralComment();
         }),

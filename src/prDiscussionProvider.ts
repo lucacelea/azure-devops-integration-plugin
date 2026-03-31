@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { EnrichedPullRequest, PrThread, getPrThreads, getPrIterations, replyToThread, addPullRequestComment } from './api';
+import { EnrichedPullRequest, PrThread, getPrThreads, getPrIterations, replyToThread, addPullRequestComment, updateThreadStatus } from './api';
 import { getToken } from './auth';
 import { buildPrFileUri } from './prContentProvider';
 import { setCommentContent, buildCommentDocUri, clearCommentContent } from './prCommentDocProvider';
@@ -96,7 +96,7 @@ export class PrDiscussionItem extends vscode.TreeItem {
             }
         }
 
-        this.contextValue = 'discussionThread';
+        this.contextValue = thread.status === 'active' ? 'discussionThread.active' : 'discussionThread.resolved';
 
         // Click to open the diff (file comments) or the full comment (general comments)
         if (isGeneral || (filePath && sourceCommitId && targetCommitId)) {
@@ -207,6 +207,25 @@ export class PrDiscussionProvider implements vscode.TreeDataProvider<DiscussionT
 
         await replyToThread(org, project, repoId, pr.pullRequestId, item.thread.id, content, token);
         this.refresh();
+    }
+
+    /** Change the status of a discussion thread (e.g. resolve, reactivate). */
+    async changeThreadStatus(item: PrDiscussionItem, status: string): Promise<void> {
+        const token = await getToken(this.secretStorage);
+        if (!token || !this.selectedPr || !this.selectedOrg) { return; }
+
+        const pr = this.selectedPr;
+        const org = this.selectedOrg;
+        const project = pr.repository?.project?.name ?? '';
+        const repoId = pr.repository?.id ?? '';
+
+        try {
+            await updateThreadStatus(org, project, repoId, pr.pullRequestId, item.thread.id, status, token);
+            this.refresh();
+        } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : 'Unknown error';
+            vscode.window.showErrorMessage(`Failed to update thread status: ${msg}`);
+        }
     }
 
     /** Add a new general (non-file) comment on the PR. */
