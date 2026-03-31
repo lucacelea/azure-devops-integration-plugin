@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { EnrichedPullRequest, PrThread, getPrThreads, getPrIterations, replyToThread, addPullRequestComment, updateThreadStatus } from './api';
+import { EnrichedPullRequest, PrThread, getPrThreads, getPrIterations, replyToThread, addPullRequestComment, updateThreadStatus, ThreadStatus } from './api';
 import { getToken } from './auth';
 import { buildPrFileUri } from './prContentProvider';
 import { setCommentContent, buildCommentDocUri, clearCommentContent } from './prCommentDocProvider';
@@ -210,7 +210,7 @@ export class PrDiscussionProvider implements vscode.TreeDataProvider<DiscussionT
     }
 
     /** Change the status of a discussion thread (e.g. resolve, reactivate). */
-    async changeThreadStatus(item: PrDiscussionItem, status: string): Promise<void> {
+    async changeThreadStatus(item: PrDiscussionItem, status: ThreadStatus): Promise<void> {
         const token = await getToken(this.secretStorage);
         if (!token || !this.selectedPr || !this.selectedOrg) { return; }
 
