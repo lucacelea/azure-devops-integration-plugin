@@ -116,4 +116,25 @@ describe('PullRequestItem.fromCheck', () => {
         expect((item.iconPath as vscode.ThemeIcon).id).toBe('circle-slash');
         expect((item.iconPath as vscode.ThemeIcon).color).toEqual(new vscode.ThemeColor('disabledForeground'));
     });
+
+    it('sets a click command when pipelineUrl is provided', () => {
+        const check: PolicyCheck = {
+            name: 'Build',
+            status: 'approved',
+            isBlocking: true,
+            pipelineUrl: 'https://dev.azure.com/myorg/myproj/_build/results?buildId=123',
+        };
+        const item = PullRequestItem.fromCheck(check);
+
+        expect(item.command).toBeDefined();
+        expect(item.command!.command).toBe('azureDevops.openCheckInBrowser');
+        expect(item.command!.arguments).toEqual(['https://dev.azure.com/myorg/myproj/_build/results?buildId=123']);
+    });
+
+    it('does not set a click command when pipelineUrl is absent', () => {
+        const check: PolicyCheck = { name: 'Required Reviewer', status: 'approved', isBlocking: true };
+        const item = PullRequestItem.fromCheck(check);
+
+        expect(item.command).toBeUndefined();
+    });
 });

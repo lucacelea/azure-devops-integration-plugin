@@ -170,6 +170,11 @@
         "command": "azureDevops.addGeneralComment",
         "title": "Add Comment",
         "icon": "$(add)"
+      },
+      {
+        "command": "azureDevops.openCheckInBrowser",
+        "title": "Open Pipeline Run",
+        "icon": "$(link-external)"
       }
     ],
     "viewsContainers": {
@@ -210,6 +215,10 @@
       "commandPalette": [
         {
           "command": "azureDevops.editPrDescription",
+          "when": "false"
+        },
+        {
+          "command": "azureDevops.openCheckInBrowser",
           "when": "false"
         }
       ],

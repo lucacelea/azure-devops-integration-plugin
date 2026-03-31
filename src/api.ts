@@ -18,6 +18,7 @@ export interface PolicyCheck {
     name: string;
     status: 'approved' | 'rejected' | 'running' | 'queued' | 'broken' | 'notApplicable';
     isBlocking: boolean;
+    pipelineUrl?: string;
 }
 
 export interface EnrichedPullRequest extends PullRequest {
@@ -426,10 +427,18 @@ async function getChecks(
                 }
             }
 
+            let pipelineUrl: string | undefined;
+            if (e.context?.buildId) {
+                pipelineUrl =
+                    `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}` +
+                    `/_build/results?buildId=${encodeURIComponent(String(e.context.buildId))}`;
+            }
+
             return {
                 name,
                 status,
                 isBlocking: e.configuration.isBlocking,
+                pipelineUrl,
             };
         });
 
