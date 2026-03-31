@@ -105,6 +105,11 @@
         "icon": "$(edit)"
       },
       {
+        "command": "azureDevops.manageReviewersPr",
+        "title": "Manage Reviewers",
+        "icon": "$(person)"
+      },
+      {
         "command": "azureDevops.editPrDescriptionFromPicker",
         "title": "Azure DevOps: Edit Pull Request Description"
       },
@@ -300,6 +305,11 @@
           "command": "azureDevops.editPrDescription",
           "when": "viewItem == pullRequest",
           "group": "2_actions@4"
+        },
+        {
+          "command": "azureDevops.manageReviewersPr",
+          "when": "viewItem == pullRequest",
+          "group": "2_actions@5"
         },
         {
           "command": "azureDevops.checkoutPrBranch",

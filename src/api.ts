@@ -815,3 +815,65 @@ export async function getFileContent(
     const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/items?path=${encodeURIComponent(path)}&versionDescriptor.version=${commitId}&versionDescriptor.versionType=commit&$format=text&api-version=7.1`;
     return await httpsGet(url, authHeaders(token));
 }
+
+// --- Reviewer management APIs ---
+
+export interface TeamMember {
+    id: string;
+    displayName: string;
+}
+
+export async function addReviewer(
+    org: string, project: string, repoId: string, prId: number,
+    reviewerId: string, token: string
+): Promise<void> {
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/pullRequests/${prId}/reviewers/${reviewerId}?api-version=7.1`;
+    await httpsRequest(url, 'PUT', authHeaders(token), { id: reviewerId });
+}
+
+export async function removeReviewer(
+    org: string, project: string, repoId: string, prId: number,
+    reviewerId: string, token: string
+): Promise<void> {
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/pullRequests/${prId}/reviewers/${reviewerId}?api-version=7.1`;
+    await httpsRequest(url, 'DELETE', authHeaders(token));
+}
+
+export async function getTeamMembers(
+    org: string, project: string, token: string
+): Promise<TeamMember[]> {
+    // First, get the user's teams within the project
+    const teamsUrl =
+        `https://dev.azure.com/${encodeURIComponent(org)}/_apis/projects/${encodeURIComponent(project)}/teams?$mine=true&api-version=7.1-preview.3`;
+    let teams: Array<{ id: string }>;
+    try {
+        const teamsBody = await httpsGet(teamsUrl, authHeaders(token));
+        const teamsData = JSON.parse(teamsBody);
+        teams = teamsData.value as Array<{ id: string }>;
+    } catch {
+        return [];
+    }
+
+    // Then fetch members for each team
+    const seen = new Map<string, TeamMember>();
+    for (const team of teams) {
+        try {
+            const membersUrl =
+                `https://dev.azure.com/${encodeURIComponent(org)}/_apis/projects/${encodeURIComponent(project)}/teams/${team.id}/members?api-version=7.1-preview.2`;
+            const membersBody = await httpsGet(membersUrl, authHeaders(token));
+            const membersData = JSON.parse(membersBody);
+            for (const m of membersData.value as Array<{ identity: { id: string; displayName: string } }>) {
+                if (!seen.has(m.identity.id)) {
+                    seen.set(m.identity.id, {
+                        id: m.identity.id,
+                        displayName: m.identity.displayName,
+                    });
+                }
+            }
+        } catch {
+            // Skip teams we can't fetch members for
+        }
+    }
+
+    return Array.from(seen.values());
+}

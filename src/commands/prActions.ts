@@ -6,6 +6,9 @@ import {
     abandonPullRequest,
     addPullRequestComment,
     getPullRequestDetails,
+    addReviewer,
+    removeReviewer,
+    getTeamMembers,
 } from '../api';
 import { getToken } from '../auth';
 import { buildPullRequestUrl } from '../prLinks';
@@ -142,6 +145,90 @@ export function registerPrActions(
             const repoName = pr.repository?.name ?? '';
             const prUrl = buildPullRequestUrl(org, project, repoName, pr.pullRequestId);
             vscode.env.openExternal(vscode.Uri.parse(prUrl));
+        })
+    );
+
+    // Manage Reviewers
+    context.subscriptions.push(
+        vscode.commands.registerCommand('azureDevops.manageReviewersPr', async (item: PullRequestItem) => {
+            const ctx = await getContext(item, provider);
+            if (!ctx) { return; }
+            try {
+                // Fetch latest PR details to get current reviewers
+                const details = await getPullRequestDetails(ctx.org, ctx.project, ctx.repoId, ctx.pr.pullRequestId, ctx.token);
+                const currentReviewers = details.reviewers ?? [];
+                const currentReviewerIds = new Set(currentReviewers.map(r => r.id));
+
+                // Fetch team members as candidates
+                const teamMembers = await getTeamMembers(ctx.org, ctx.project, ctx.token);
+
+                // Merge current reviewers and team members into a single candidate list
+                const candidateMap = new Map<string, { id: string; displayName: string }>();
+                for (const member of teamMembers) {
+                    candidateMap.set(member.id, member);
+                }
+                // Ensure current reviewers are always in the list
+                for (const reviewer of currentReviewers) {
+                    if (!candidateMap.has(reviewer.id)) {
+                        candidateMap.set(reviewer.id, { id: reviewer.id, displayName: reviewer.displayName });
+                    }
+                }
+
+                const candidates = Array.from(candidateMap.values())
+                    .sort((a, b) => a.displayName.localeCompare(b.displayName));
+
+                if (candidates.length === 0) {
+                    vscode.window.showInformationMessage('No team members found to add as reviewers.');
+                    return;
+                }
+
+                // Show multi-select quick pick with current reviewers pre-selected
+                const items: vscode.QuickPickItem[] = candidates.map(c => ({
+                    label: c.displayName,
+                    description: currentReviewerIds.has(c.id) ? 'Current reviewer' : '',
+                    picked: currentReviewerIds.has(c.id),
+                }));
+
+                const selected = await vscode.window.showQuickPick(items, {
+                    canPickMany: true,
+                    placeHolder: 'Select reviewers for this pull request',
+                    title: `Manage Reviewers — PR #${ctx.pr.pullRequestId}`,
+                });
+
+                if (!selected) { return; }
+
+                const selectedIds = new Set(
+                    selected.map(s => {
+                        const match = candidates.find(c => c.displayName === s.label);
+                        return match?.id;
+                    }).filter((id): id is string => !!id)
+                );
+
+                // Add new reviewers
+                const toAdd = candidates.filter(c => selectedIds.has(c.id) && !currentReviewerIds.has(c.id));
+                // Remove deselected reviewers
+                const toRemove = currentReviewers.filter(r => !selectedIds.has(r.id));
+
+                for (const reviewer of toAdd) {
+                    await addReviewer(ctx.org, ctx.project, ctx.repoId, ctx.pr.pullRequestId, reviewer.id, ctx.token);
+                }
+                for (const reviewer of toRemove) {
+                    await removeReviewer(ctx.org, ctx.project, ctx.repoId, ctx.pr.pullRequestId, reviewer.id, ctx.token);
+                }
+
+                const changes: string[] = [];
+                if (toAdd.length > 0) { changes.push(`added ${toAdd.length}`); }
+                if (toRemove.length > 0) { changes.push(`removed ${toRemove.length}`); }
+
+                if (changes.length > 0) {
+                    vscode.window.showInformationMessage(`Reviewers updated: ${changes.join(', ')}.`);
+                    provider.refresh();
+                } else {
+                    vscode.window.showInformationMessage('No reviewer changes made.');
+                }
+            } catch (e: any) {
+                vscode.window.showErrorMessage(`Failed to manage reviewers: ${e.message}`);
+            }
         })
     );
 }
