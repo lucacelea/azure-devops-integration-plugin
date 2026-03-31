@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **PR age in sidebar**: each pull request now shows its relative age in the tree item description (e.g. `feature · 2d ago`) and in the tooltip.
+- **File comment badges**: the PR Changes view now shows unresolved comment counts per file (e.g. `💬 3`) so you can spot files that need attention at a glance.
+- **Vote from diff editor**: approve, reject, and wait-for-author buttons now appear in the editor title bar when viewing a PR diff, so you can vote without switching back to the sidebar.
+
 ## [0.7.0] - 2026-03-27
 
 ### Added
