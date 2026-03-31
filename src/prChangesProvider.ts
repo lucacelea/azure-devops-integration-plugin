@@ -101,7 +101,7 @@ export class PrChangesProvider implements vscode.TreeDataProvider<PrFileItem> {
             const targetCommitId = lastIteration.targetRefCommit?.commitId ?? '';
 
             // Build a map of file path → unresolved comment count from the enriched PR data
-            const fileCommentCounts = this.buildFileCommentCounts(pr.commentThreads);
+            const fileCommentCounts = this.buildFileCommentCounts(pr.commentThreads ?? []);
 
             return changes
                 .filter(c => c.item?.path)

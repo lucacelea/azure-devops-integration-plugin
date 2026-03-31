@@ -189,7 +189,8 @@ export function activate(context: vscode.ExtensionContext) {
     // Register editor-title vote commands (approve/reject/wait from diff view)
     registerEditorVoteCommands(context, prProvider);
 
-    // Track when a PR diff editor is active to show editor/title vote buttons
+    // Track when a PR diff editor is active to show editor/title vote buttons.
+    // The 'empty' authority is used for placeholder (empty-file) side of diffs and should be excluded.
     function updatePrDiffContext() {
         const editor = vscode.window.activeTextEditor;
         const isPrDiff = editor?.document.uri.scheme === 'azuredevops-pr'

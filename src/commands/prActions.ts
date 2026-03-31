@@ -166,7 +166,7 @@ export function registerEditorVoteCommands(
 
                 const parsed = parsePrFileUri(editor.document.uri);
                 if (!parsed?.prId) {
-                    vscode.window.showErrorMessage('No pull request associated with the current editor.');
+                    vscode.window.showErrorMessage('No pull request found. Open a PR diff file to use this command.');
                     return;
                 }
 
