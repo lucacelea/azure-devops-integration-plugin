@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { PrThread, getPrThreads, addPullRequestFileComment, replyToThread } from './api';
+import { PrThread, getPrThreads, addPullRequestFileComment, replyToThread, updateThreadStatus } from './api';
 import { parsePrFileUri } from './prContentProvider';
 import { getToken } from './auth';
 
@@ -163,6 +163,10 @@ export class PrCommentController implements vscode.Disposable {
         vsThread.canReply = true;
         vsThread.label = thread.status === 'active' ? 'Active' : thread.status;
         vsThread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
+        vsThread.contextValue = thread.status === 'active' ? 'active' : 'resolved';
+        vsThread.state = thread.status === 'active'
+            ? vscode.CommentThreadState.Unresolved
+            : vscode.CommentThreadState.Resolved;
         this.threadMeta.set(vsThread, meta);
         return vsThread;
     }
@@ -258,6 +262,58 @@ export class PrCommentController implements vscode.Disposable {
         } catch (e: unknown) {
             const msg = e instanceof Error ? e.message : 'Unknown error';
             vscode.window.showErrorMessage(`Failed to reply: ${msg}`);
+        }
+    }
+
+    async resolveThread(thread: vscode.CommentThread): Promise<void> {
+        const meta = this.threadMeta.get(thread);
+        if (!meta) { return; }
+
+        const token = await getToken(this.secretStorage);
+        if (!token) {
+            vscode.window.showErrorMessage('No PAT configured.');
+            return;
+        }
+
+        try {
+            await updateThreadStatus(
+                meta.org, meta.project, meta.repoId, meta.prId,
+                meta.threadId, 'fixed', token
+            );
+            thread.contextValue = 'resolved';
+            thread.state = vscode.CommentThreadState.Resolved;
+            thread.label = 'fixed';
+            thread.collapsibleState = vscode.CommentThreadCollapsibleState.Collapsed;
+            this._onDidAddComment.fire();
+        } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : 'Unknown error';
+            vscode.window.showErrorMessage(`Failed to resolve thread: ${msg}`);
+        }
+    }
+
+    async unresolveThread(thread: vscode.CommentThread): Promise<void> {
+        const meta = this.threadMeta.get(thread);
+        if (!meta) { return; }
+
+        const token = await getToken(this.secretStorage);
+        if (!token) {
+            vscode.window.showErrorMessage('No PAT configured.');
+            return;
+        }
+
+        try {
+            await updateThreadStatus(
+                meta.org, meta.project, meta.repoId, meta.prId,
+                meta.threadId, 'active', token
+            );
+            thread.contextValue = 'active';
+            thread.state = vscode.CommentThreadState.Unresolved;
+            thread.label = 'Active';
+            thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
+            this._onDidAddComment.fire();
+        } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : 'Unknown error';
+            vscode.window.showErrorMessage(`Failed to reactivate thread: ${msg}`);
         }
     }
 

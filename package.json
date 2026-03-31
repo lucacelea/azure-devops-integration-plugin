@@ -170,6 +170,16 @@
         "command": "azureDevops.addGeneralComment",
         "title": "Add Comment",
         "icon": "$(add)"
+      },
+      {
+        "command": "azureDevops.resolveThread",
+        "title": "Resolve Thread",
+        "icon": "$(check)"
+      },
+      {
+        "command": "azureDevops.unresolveThread",
+        "title": "Reactivate Thread",
+        "icon": "$(issue-reopened)"
       }
     ],
     "viewsContainers": {
@@ -205,11 +215,29 @@
           "command": "azureDevops.replyToComment",
           "group": "inline",
           "when": "commentController == azureDevopsPrComments"
+        },
+        {
+          "command": "azureDevops.resolveThread",
+          "group": "inline",
+          "when": "commentController == azureDevopsPrComments && commentThread =~ /active/"
+        },
+        {
+          "command": "azureDevops.unresolveThread",
+          "group": "inline",
+          "when": "commentController == azureDevopsPrComments && commentThread =~ /resolved/"
         }
       ],
       "commandPalette": [
         {
           "command": "azureDevops.editPrDescription",
+          "when": "false"
+        },
+        {
+          "command": "azureDevops.resolveThread",
+          "when": "false"
+        },
+        {
+          "command": "azureDevops.unresolveThread",
           "when": "false"
         }
       ],

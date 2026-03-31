@@ -640,6 +640,14 @@ export async function replyToThread(
     return JSON.parse(response);
 }
 
+export async function updateThreadStatus(
+    org: string, project: string, repoId: string, prId: number,
+    threadId: number, status: 'active' | 'fixed', token: string
+): Promise<void> {
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/pullRequests/${prId}/threads/${threadId}?api-version=7.1`;
+    await httpsRequest(url, 'PATCH', authHeaders(token), { status });
+}
+
 export async function getPullRequestDetails(
     org: string, project: string, repoId: string, prId: number, token: string
 ): Promise<PullRequestDetails> {

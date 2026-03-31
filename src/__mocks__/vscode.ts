@@ -83,6 +83,9 @@ export class Range {
 }
 export class Selection extends Range {}
 export enum TextEditorRevealType { InCenter = 0 }
+export enum CommentMode { Preview = 0, Editing = 1 }
+export enum CommentThreadCollapsibleState { Collapsed = 0, Expanded = 1 }
+export enum CommentThreadState { Unresolved = 0, Resolved = 1 }
 export class EventEmitter { fire() {} event = () => {}; }
 export class TabInputText {
     constructor(public uri: { fsPath: string }) {}
@@ -103,6 +106,8 @@ export const window = {
 export const workspace = {
     openTextDocument: jest.fn(),
     onDidChangeTextDocument: jest.fn(),
+    onDidOpenTextDocument: jest.fn().mockReturnValue({ dispose: jest.fn() }),
+    textDocuments: [] as any[],
     getConfiguration: jest.fn().mockReturnValue({
         get: jest.fn().mockImplementation((_key: string, defaultValue?: unknown) => defaultValue),
     }),
@@ -116,4 +121,19 @@ export const env = {
     clipboard: {
         writeText: jest.fn(),
     },
+};
+export const comments = {
+    createCommentController: jest.fn().mockReturnValue({
+        commentingRangeProvider: undefined,
+        createCommentThread: jest.fn().mockImplementation((_uri: unknown, _range: unknown, _comments: unknown) => ({
+            comments: _comments,
+            canReply: true,
+            label: '',
+            collapsibleState: CommentThreadCollapsibleState.Expanded,
+            contextValue: undefined as string | undefined,
+            state: undefined as CommentThreadState | undefined,
+            dispose: jest.fn(),
+        })),
+        dispose: jest.fn(),
+    }),
 };

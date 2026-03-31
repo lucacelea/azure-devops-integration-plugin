@@ -102,6 +102,12 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('azureDevops.replyToComment', (reply: vscode.CommentReply) => {
             return prCommentController.replyToThread(reply);
         }),
+        vscode.commands.registerCommand('azureDevops.resolveThread', (thread: vscode.CommentThread) => {
+            return prCommentController.resolveThread(thread);
+        }),
+        vscode.commands.registerCommand('azureDevops.unresolveThread', (thread: vscode.CommentThread) => {
+            return prCommentController.unresolveThread(thread);
+        }),
     );
 
     // PR changes tree view (Phase 2)
