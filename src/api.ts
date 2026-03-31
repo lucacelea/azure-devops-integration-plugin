@@ -5,6 +5,7 @@ export interface PullRequest {
     title: string;
     description?: string;
     sourceRefName: string;
+    creationDate?: string;
     createdBy: { displayName: string; id: string };
     reviewers: Array<{ displayName: string; vote: number; id: string }>;
     repository: { id: string; name: string; project: { id: string; name: string } };

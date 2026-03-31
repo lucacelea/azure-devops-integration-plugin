@@ -9,6 +9,7 @@ import {
 } from '../api';
 import { getToken } from '../auth';
 import { buildPullRequestUrl } from '../prLinks';
+import { parsePrFileUri } from '../prContentProvider';
 
 async function getContext(item: PullRequestItem, provider: PullRequestTreeProvider) {
     if (!item) {
@@ -144,4 +145,59 @@ export function registerPrActions(
             vscode.env.openExternal(vscode.Uri.parse(prUrl));
         })
     );
+}
+
+export function registerEditorVoteCommands(
+    context: vscode.ExtensionContext,
+    provider: PullRequestTreeProvider
+) {
+    const editorVoteCommands: Array<{ command: string; vote: number; label: string }> = [
+        { command: 'azureDevops.editorApprovePr', vote: 10, label: 'Approved' },
+        { command: 'azureDevops.editorRejectPr', vote: -10, label: 'Rejected' },
+        { command: 'azureDevops.editorWaitForAuthorPr', vote: -5, label: 'Waiting for author' },
+    ];
+
+    for (const { command, vote, label } of editorVoteCommands) {
+        context.subscriptions.push(
+            vscode.commands.registerCommand(command, async () => {
+                // Resolve PR from the active editor URI
+                const editor = vscode.window.activeTextEditor;
+                if (!editor) { return; }
+
+                const parsed = parsePrFileUri(editor.document.uri);
+                if (!parsed?.prId) {
+                    vscode.window.showErrorMessage('No pull request associated with the current editor.');
+                    return;
+                }
+
+                const pr = provider.getPullRequestById(parsed.prId);
+                if (!pr) {
+                    vscode.window.showErrorMessage('Pull request data not available. Try refreshing the PR list.');
+                    return;
+                }
+
+                const token = await getToken(provider.secretStorage);
+                if (!token) {
+                    vscode.window.showErrorMessage('No PAT configured.');
+                    return;
+                }
+                const userId = provider.cachedUserId;
+                if (!userId) {
+                    vscode.window.showErrorMessage('User ID not available. Try refreshing.');
+                    return;
+                }
+
+                const project = pr.repository?.project?.name ?? '';
+                const repoId = pr.repository?.id ?? '';
+
+                try {
+                    await updateReviewerVote(parsed.org, project, repoId, pr.pullRequestId, userId, vote, token);
+                    vscode.window.showInformationMessage(`PR #${pr.pullRequestId}: ${label}`);
+                    provider.refresh();
+                } catch (e: any) {
+                    vscode.window.showErrorMessage(`Failed to vote: ${e.message}`);
+                }
+            })
+        );
+    }
 }

@@ -14,6 +14,31 @@ interface CommentNotificationHandlers {
     openInDevOps: (event: CommentNotificationEvent) => Promise<void>;
 }
 
+export function formatRelativeTime(dateStr: string): string {
+    const now = Date.now();
+    const then = new Date(dateStr).getTime();
+    const diffMs = now - then;
+    if (diffMs < 0) { return 'just now'; }
+
+    const seconds = Math.floor(diffMs / 1000);
+    if (seconds < 60) { return 'just now'; }
+
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) { return `${minutes}m ago`; }
+
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) { return `${hours}h ago`; }
+
+    const days = Math.floor(hours / 24);
+    if (days < 30) { return `${days}d ago`; }
+
+    const months = Math.floor(days / 30);
+    if (months < 12) { return `${months}mo ago`; }
+
+    const years = Math.floor(months / 12);
+    return `${years}y ago`;
+}
+
 export class PullRequestItem extends vscode.TreeItem {
     public children?: PullRequestItem[];
     public pr?: EnrichedPullRequest;
@@ -101,8 +126,9 @@ export class PullRequestItem extends vscode.TreeItem {
         // --- Label ---
         const label = pr.isDraft ? `[Draft] ${pr.title}` : pr.title;
 
-        // --- Description: just the branch name ---
-        const description = branch;
+        // --- Description: branch name + age ---
+        const age = pr.creationDate ? formatRelativeTime(pr.creationDate) : '';
+        const description = age ? `${branch} · ${age}` : branch;
 
         // --- Tooltip: plain markdown (no codicons — they don't render reliably in tree tooltips) ---
         const commentsText = pr.unresolvedCommentCount > 0
@@ -125,13 +151,15 @@ export class PullRequestItem extends vscode.TreeItem {
         });
 
         const draftLine = pr.isDraft ? '**Draft**\n\n' : '';
+        const ageLine = pr.creationDate ? `Created: ${age}  \n` : '';
 
         const tooltip = new vscode.MarkdownString(
             `**${pr.title}** #${pr.pullRequestId}\n\n` +
             draftLine +
             `Author: ${pr.createdBy.displayName}  \n` +
-            `Branch: ${branch}\n\n` +
-            `---\n\n` +
+            `Branch: ${branch}  \n` +
+            ageLine +
+            `\n---\n\n` +
             `${commentsText}\n\n` +
             `---\n\n` +
             (reviewerLines.length > 0

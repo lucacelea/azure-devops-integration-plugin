@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { EnrichedPullRequest, getPrIterations, getPrChanges, PrChange } from './api';
+import { EnrichedPullRequest, getPrIterations, getPrChanges, PrChange, PrThreadSummary } from './api';
 import { getToken } from './auth';
 
 export class PrFileItem extends vscode.TreeItem {
@@ -11,12 +11,17 @@ export class PrFileItem extends vscode.TreeItem {
         public readonly sourceCommitId: string,
         public readonly targetCommitId: string,
         public readonly prId: number,
+        commentCount?: number,
     ) {
         const fileName = change.item.path.split('/').pop() ?? change.item.path;
         super(fileName, vscode.TreeItemCollapsibleState.None);
 
-        this.description = change.item.path;
-        this.tooltip = `${change.changeType}: ${change.item.path}`;
+        this.description = commentCount && commentCount > 0
+            ? `${change.item.path}  💬 ${commentCount}`
+            : change.item.path;
+        this.tooltip = commentCount && commentCount > 0
+            ? `${change.changeType}: ${change.item.path} — ${commentCount} unresolved comment${commentCount === 1 ? '' : 's'}`
+            : `${change.changeType}: ${change.item.path}`;
         this.contextValue = 'prFile';
 
         // Icon based on change type
@@ -95,12 +100,28 @@ export class PrChangesProvider implements vscode.TreeDataProvider<PrFileItem> {
             const sourceCommitId = lastIteration.sourceRefCommit?.commitId ?? '';
             const targetCommitId = lastIteration.targetRefCommit?.commitId ?? '';
 
+            // Build a map of file path → unresolved comment count from the enriched PR data
+            const fileCommentCounts = this.buildFileCommentCounts(pr.commentThreads);
+
             return changes
                 .filter(c => c.item?.path)
-                .map(c => new PrFileItem(c, org, project, repoId, sourceCommitId, targetCommitId, pr.pullRequestId));
+                .map(c => new PrFileItem(
+                    c, org, project, repoId, sourceCommitId, targetCommitId, pr.pullRequestId,
+                    fileCommentCounts.get(c.item.path),
+                ));
         } catch (e: any) {
             vscode.window.showErrorMessage(`Failed to load PR changes: ${e.message}`);
             return [];
         }
+    }
+
+    private buildFileCommentCounts(threads: PrThreadSummary[]): Map<string, number> {
+        const counts = new Map<string, number>();
+        for (const thread of threads) {
+            if (thread.filePath && thread.status === 'active') {
+                counts.set(thread.filePath, (counts.get(thread.filePath) ?? 0) + 1);
+            }
+        }
+        return counts;
     }
 }
