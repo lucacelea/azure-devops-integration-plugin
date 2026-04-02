@@ -33,6 +33,7 @@ function makePr(): EnrichedPullRequest {
         commentThreads: [],
         checksStatus: 'none',
         checks: [],
+        workItems: [],
     };
 }
 

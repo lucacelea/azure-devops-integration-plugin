@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { getOrganization } from './config';
 import { getToken } from './auth';
-import { getMyPullRequests, getUserId, EnrichedPullRequest, MyPullRequests, PolicyCheck, PrThreadSummary } from './api';
+import { getMyPullRequests, getUserId, EnrichedPullRequest, MyPullRequests, PolicyCheck, PrThreadSummary, WorkItem } from './api';
 
 export interface CommentNotificationEvent {
     org: string;
@@ -150,8 +150,17 @@ export class PullRequestItem extends vscode.TreeItem {
             return `- ${symbol} ${r.displayName} \u2014 ${rLabel}`;
         });
 
+        const workItems = pr.workItems ?? [];
+        const workItemLines = workItems.map(
+            (wi) => `- AB#${wi.id} \u2014 ${wi.title}`
+        );
+
         const draftLine = pr.isDraft ? '**Draft**\n\n' : '';
         const ageLine = pr.creationDate ? `Created: ${age}  \n` : '';
+
+        const workItemsSection = workItemLines.length > 0
+            ? `\n\n---\n\n**Work Items:**\n\n${workItemLines.join('\n')}`
+            : '';
 
         const tooltip = new vscode.MarkdownString(
             `**${pr.title}** #${pr.pullRequestId}\n\n` +
@@ -164,19 +173,23 @@ export class PullRequestItem extends vscode.TreeItem {
             `---\n\n` +
             (reviewerLines.length > 0
                 ? `**Reviewers:**\n\n${reviewerLines.join('\n')}`
-                : 'No reviewers assigned')
+                : 'No reviewers assigned') +
+            workItemsSection
         );
 
-        // --- Build check children ---
+        // --- Build child nodes (checks + work items) ---
         const checks = pr.checks ?? [];
         const checkChildren = checks.map((check) => PullRequestItem.fromCheck(check));
+        const workItemChildren = workItems.map((wi) => PullRequestItem.fromWorkItem(wi, org, pr));
+
+        const allChildren = [...checkChildren, ...workItemChildren];
 
         // --- Assemble item ---
-        const hasChildren = checkChildren.length > 0;
+        const hasChildren = allChildren.length > 0;
         const item = new PullRequestItem(
             label,
             hasChildren ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
-            hasChildren ? checkChildren : undefined
+            hasChildren ? allChildren : undefined
         );
         item.description = description;
         item.tooltip = tooltip;
@@ -236,6 +249,37 @@ export class PullRequestItem extends vscode.TreeItem {
         item.description = statusLabel;
         item.iconPath = new vscode.ThemeIcon(iconId, iconColor);
         item.contextValue = 'policyCheck';
+
+        return item;
+    }
+
+    static fromWorkItem(wi: WorkItem, org: string, pr: EnrichedPullRequest): PullRequestItem {
+        const typeIcons: Record<string, string> = {
+            'Bug': 'bug',
+            'Task': 'tasklist',
+            'User Story': 'bookmark',
+            'Feature': 'rocket',
+            'Epic': 'star-full',
+            'Issue': 'issues',
+        };
+        const iconId = typeIcons[wi.type] ?? 'symbol-field';
+
+        const item = new PullRequestItem(
+            `AB#${wi.id} \u2014 ${wi.title}`,
+            vscode.TreeItemCollapsibleState.None
+        );
+        item.description = `${wi.type} \u00B7 ${wi.state}`;
+        item.iconPath = new vscode.ThemeIcon(iconId);
+        item.contextValue = 'workItem';
+        item.command = {
+            command: 'vscode.open',
+            title: 'Open Work Item',
+            arguments: [
+                vscode.Uri.parse(
+                    `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(pr.repository?.project?.name ?? '')}/_workitems/edit/${wi.id}`
+                ),
+            ],
+        };
 
         return item;
     }
