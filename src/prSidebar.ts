@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { getOrganization } from './config';
 import { getToken } from './auth';
 import { getMyPullRequests, getUserId, EnrichedPullRequest, MyPullRequests, PolicyCheck, PrThreadSummary, WorkItem } from './api';
+import { buildWorkItemUrl } from './workItem';
 
 export interface CommentNotificationEvent {
     org: string;
@@ -276,7 +277,7 @@ export class PullRequestItem extends vscode.TreeItem {
             title: 'Open Work Item',
             arguments: [
                 vscode.Uri.parse(
-                    `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(pr.repository?.project?.name ?? '')}/_workitems/edit/${wi.id}`
+                    buildWorkItemUrl(org, pr.repository?.project?.name ?? '', wi.id)
                 ),
             ],
         };
