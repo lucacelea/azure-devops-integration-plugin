@@ -306,9 +306,9 @@ What it does:
 - shows `WI #<id>` if present
 - opens the work item on click
 - updates on configuration changes
-- polls branch changes every 5 seconds
+- detects branch changes via the VS Code Git extension API (`vscode.git`), with a `.git/HEAD` file watcher fallback
 
-This is git-polling based, not event based.
+This is event-driven, not polling-based.
 
 ## Azure DevOps API Surface
 
