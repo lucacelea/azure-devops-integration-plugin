@@ -4,6 +4,15 @@ import { getToken } from './auth';
 import { getMyPullRequests, getUserId, EnrichedPullRequest, MyPullRequests, PolicyCheck, PrThreadSummary, WorkItem } from './api';
 import { buildWorkItemUrl } from './workItem';
 
+const WORK_ITEM_TYPE_ICONS: Record<string, string> = {
+    'Bug': 'bug',
+    'Task': 'tasklist',
+    'User Story': 'bookmark',
+    'Feature': 'rocket',
+    'Epic': 'star-full',
+    'Issue': 'issues',
+};
+
 export interface CommentNotificationEvent {
     org: string;
     pr: EnrichedPullRequest;
@@ -178,19 +187,23 @@ export class PullRequestItem extends vscode.TreeItem {
             workItemsSection
         );
 
-        // --- Build child nodes (checks + work items) ---
+        // --- Build summary child nodes ---
         const checks = pr.checks ?? [];
-        const checkChildren = checks.map((check) => PullRequestItem.fromCheck(check));
-        const workItemChildren = workItems.map((wi) => PullRequestItem.fromWorkItem(wi, org, pr));
+        const summaryChildren: PullRequestItem[] = [];
 
-        const allChildren = [...checkChildren, ...workItemChildren];
+        if (checks.length > 0) {
+            summaryChildren.push(PullRequestItem.checksSummary(checks));
+        }
+        if (workItems.length > 0) {
+            summaryChildren.push(PullRequestItem.workItemsSummary(workItems, org, pr));
+        }
 
         // --- Assemble item ---
-        const hasChildren = allChildren.length > 0;
+        const hasChildren = summaryChildren.length > 0;
         const item = new PullRequestItem(
             label,
             hasChildren ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
-            hasChildren ? allChildren : undefined
+            hasChildren ? summaryChildren : undefined
         );
         item.description = description;
         item.tooltip = tooltip;
@@ -254,16 +267,58 @@ export class PullRequestItem extends vscode.TreeItem {
         return item;
     }
 
+    static checksSummary(checks: PolicyCheck[]): PullRequestItem {
+        const passed = checks.filter((c) => c.status === 'approved').length;
+        const failed = checks.filter((c) => c.status === 'rejected' || c.status === 'broken').length;
+        const running = checks.filter((c) => c.status === 'running' || c.status === 'queued').length;
+
+        let iconId: string;
+        let iconColor: vscode.ThemeColor | undefined;
+        let summary: string;
+
+        if (failed > 0) {
+            iconId = 'error';
+            iconColor = new vscode.ThemeColor('testing.iconFailed');
+            summary = `${failed} failed`;
+        } else if (running > 0) {
+            iconId = 'loading~spin';
+            iconColor = new vscode.ThemeColor('warningForeground');
+            summary = `${running} running`;
+        } else {
+            iconId = 'pass';
+            iconColor = new vscode.ThemeColor('testing.iconPassed');
+            summary = 'all passed';
+        }
+
+        const children = checks.map((check) => PullRequestItem.fromCheck(check));
+        const item = new PullRequestItem(
+            `Checks (${passed}/${checks.length})`,
+            vscode.TreeItemCollapsibleState.Collapsed,
+            children
+        );
+        item.description = summary;
+        item.iconPath = new vscode.ThemeIcon(iconId, iconColor);
+        item.contextValue = 'checksSummary';
+
+        return item;
+    }
+
+    static workItemsSummary(workItems: WorkItem[], org: string, pr: EnrichedPullRequest): PullRequestItem {
+        const children = workItems.map((wi) => PullRequestItem.fromWorkItem(wi, org, pr));
+        const item = new PullRequestItem(
+            `Work Items (${workItems.length})`,
+            vscode.TreeItemCollapsibleState.Collapsed,
+            children
+        );
+        item.description = workItems.map((wi) => `AB#${wi.id}`).join(', ');
+        item.iconPath = new vscode.ThemeIcon('bookmark');
+        item.contextValue = 'workItemsSummary';
+
+        return item;
+    }
+
     static fromWorkItem(wi: WorkItem, org: string, pr: EnrichedPullRequest): PullRequestItem {
-        const typeIcons: Record<string, string> = {
-            'Bug': 'bug',
-            'Task': 'tasklist',
-            'User Story': 'bookmark',
-            'Feature': 'rocket',
-            'Epic': 'star-full',
-            'Issue': 'issues',
-        };
-        const iconId = typeIcons[wi.type] ?? 'symbol-field';
+        const iconId = WORK_ITEM_TYPE_ICONS[wi.type] ?? 'symbol-field';
 
         const item = new PullRequestItem(
             `AB#${wi.id} \u2014 ${wi.title}`,

@@ -45,7 +45,7 @@ describe('PullRequestItem.fromPullRequest with work items', () => {
         expect(tooltipText).not.toContain('Work Items:');
     });
 
-    it('creates expandable item when work items are present', () => {
+    it('creates expandable item with a work items summary when work items are present', () => {
         const workItems: WorkItem[] = [
             { id: 1234, title: 'Some task', state: 'Active', type: 'Task' },
         ];
@@ -54,9 +54,15 @@ describe('PullRequestItem.fromPullRequest with work items', () => {
 
         expect(item.collapsibleState).toBe(vscode.TreeItemCollapsibleState.Collapsed);
         expect(item.children).toHaveLength(1);
+
+        const summary = item.children![0];
+        expect(summary.label).toBe('Work Items (1)');
+        expect(summary.description).toBe('AB#1234');
+        expect(summary.contextValue).toBe('workItemsSummary');
+        expect(summary.children).toHaveLength(1);
     });
 
-    it('creates expandable item with both checks and work items as children', () => {
+    it('creates two summary children when both checks and work items exist', () => {
         const workItems: WorkItem[] = [
             { id: 1234, title: 'Some task', state: 'Active', type: 'Task' },
         ];
@@ -68,6 +74,8 @@ describe('PullRequestItem.fromPullRequest with work items', () => {
 
         expect(item.collapsibleState).toBe(vscode.TreeItemCollapsibleState.Collapsed);
         expect(item.children).toHaveLength(2);
+        expect(item.children![0].contextValue).toBe('checksSummary');
+        expect(item.children![1].contextValue).toBe('workItemsSummary');
     });
 
     it('creates non-expandable item when no checks and no work items', () => {

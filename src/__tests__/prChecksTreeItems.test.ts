@@ -31,7 +31,7 @@ describe('PullRequestItem.fromPullRequest with checks', () => {
         expect(item.children).toBeUndefined();
     });
 
-    it('creates an expandable item when there are checks', () => {
+    it('creates an expandable item with a checks summary when there are checks', () => {
         const checks: PolicyCheck[] = [
             { name: 'Build Validation', status: 'approved', isBlocking: true },
             { name: 'Code Coverage', status: 'rejected', isBlocking: true },
@@ -40,7 +40,13 @@ describe('PullRequestItem.fromPullRequest with checks', () => {
         const item = PullRequestItem.fromPullRequest(pr, 'myorg');
 
         expect(item.collapsibleState).toBe(vscode.TreeItemCollapsibleState.Collapsed);
-        expect(item.children).toHaveLength(2);
+        expect(item.children).toHaveLength(1);
+
+        const summary = item.children![0];
+        expect(summary.label).toBe('Checks (1/2)');
+        expect(summary.description).toBe('1 failed');
+        expect(summary.contextValue).toBe('checksSummary');
+        expect(summary.children).toHaveLength(2);
     });
 
     it('preserves the pullRequest contextValue on the PR item', () => {

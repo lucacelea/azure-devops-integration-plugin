@@ -42,5 +42,5 @@ export async function getWorkItemId(cwd?: string): Promise<string | undefined> {
 }
 
 export function buildWorkItemUrl(org: string, project: string, workItemId: number | string): string {
-    return `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_workitems/edit/${workItemId}`;
+    return `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_workitems/edit/${encodeURIComponent(String(workItemId))}`;
 }
