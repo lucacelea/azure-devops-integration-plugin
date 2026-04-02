@@ -8,11 +8,12 @@ jest.mock('../workItem', () => ({
 }));
 
 jest.mock('../git', () => ({
+    getCurrentBranch: jest.fn(),
     getRepositoryRoot: jest.fn(),
 }));
 
 const { getWorkItemId } = require('../workItem') as { getWorkItemId: jest.Mock };
-const { getRepositoryRoot } = require('../git') as { getRepositoryRoot: jest.Mock };
+const { getCurrentBranch, getRepositoryRoot } = require('../git') as { getCurrentBranch: jest.Mock; getRepositoryRoot: jest.Mock };
 
 function makeContext(): vscode.ExtensionContext {
     return {
@@ -24,6 +25,7 @@ describe('createStatusBarItem', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         getWorkItemId.mockResolvedValue(undefined);
+        getCurrentBranch.mockResolvedValue(undefined);
         getRepositoryRoot.mockResolvedValue(undefined);
         (vscode.extensions.getExtension as jest.Mock).mockReturnValue(undefined);
     });

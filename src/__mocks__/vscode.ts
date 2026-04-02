@@ -102,14 +102,14 @@ export const window = {
     showQuickPick: jest.fn(),
     showTextDocument: jest.fn(),
     withProgress: jest.fn().mockImplementation(async (_options: unknown, task: () => unknown) => await task()),
-    createStatusBarItem: jest.fn().mockReturnValue({
+    createStatusBarItem: jest.fn().mockImplementation(() => ({
         text: '',
         tooltip: '',
         command: '',
         show: jest.fn(),
         hide: jest.fn(),
         dispose: jest.fn(),
-    }),
+    })),
     tabGroups: {
         onDidChangeTabs: jest.fn(),
     },

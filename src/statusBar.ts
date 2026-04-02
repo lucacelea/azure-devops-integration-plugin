@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { getWorkItemId } from './workItem';
-import { getRepositoryRoot } from './git';
+import { getCurrentBranch, getRepositoryRoot } from './git';
 
 // Minimal types for the VS Code Git extension API
 interface GitExtensionExports {
@@ -47,7 +47,7 @@ export function createStatusBarItem(context: vscode.ExtensionContext): vscode.St
     context.subscriptions.push(statusBarItem, configDisposable);
 
     // Event-driven branch change detection
-    subscribeToBranchChanges(context, updateStatusBar);
+    subscribeToBranchChanges(context, updateStatusBar).catch(() => {});
 
     return statusBarItem;
 }
@@ -84,15 +84,19 @@ async function subscribeToBranchChanges(
             }
 
             // Wait for a repository to open
-            const repoDisposable = api.onDidOpenRepository((repo: GitRepository) => {
+            let repoDisposable: vscode.Disposable;
+            repoDisposable = api.onDidOpenRepository((repo: GitRepository) => {
                 watchRepository(repo);
+                const idx = context.subscriptions.indexOf(repoDisposable);
+                if (idx !== -1) { context.subscriptions.splice(idx, 1); }
                 repoDisposable.dispose();
             });
             context.subscriptions.push(repoDisposable);
             return;
         }
-    } catch {
-        // Git extension not available, fall through to file watcher
+    } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error('Git extension not available, falling back to file watcher', e);
     }
 
     // Fallback: watch .git/HEAD file for branch changes
@@ -100,9 +104,18 @@ async function subscribeToBranchChanges(
     if (root) {
         const gitHeadPattern = new vscode.RelativePattern(root, '.git/HEAD');
         const watcher = vscode.workspace.createFileSystemWatcher(gitHeadPattern);
-        const handler = () => { onBranchChange(); };
-        watcher.onDidChange(handler);
-        watcher.onDidCreate(handler);
-        context.subscriptions.push(watcher);
+        let lastBranch: string | undefined;
+        const handler = async () => {
+            const branch = await getCurrentBranch();
+            if (branch !== lastBranch) {
+                lastBranch = branch;
+                onBranchChange();
+            }
+        };
+        context.subscriptions.push(
+            watcher,
+            watcher.onDidChange(handler),
+            watcher.onDidCreate(handler),
+        );
     }
 }
