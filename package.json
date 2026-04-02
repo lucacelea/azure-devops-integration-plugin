@@ -170,6 +170,21 @@
         "command": "azureDevops.addGeneralComment",
         "title": "Add Comment",
         "icon": "$(add)"
+      },
+      {
+        "command": "azureDevops.editorApprovePr",
+        "title": "Azure DevOps: Approve PR",
+        "icon": "$(check)"
+      },
+      {
+        "command": "azureDevops.editorRejectPr",
+        "title": "Azure DevOps: Reject PR",
+        "icon": "$(close)"
+      },
+      {
+        "command": "azureDevops.editorWaitForAuthorPr",
+        "title": "Azure DevOps: Wait for Author",
+        "icon": "$(eye)"
       }
     ],
     "viewsContainers": {
@@ -211,6 +226,35 @@
         {
           "command": "azureDevops.editPrDescription",
           "when": "false"
+        },
+        {
+          "command": "azureDevops.editorApprovePr",
+          "when": "false"
+        },
+        {
+          "command": "azureDevops.editorRejectPr",
+          "when": "false"
+        },
+        {
+          "command": "azureDevops.editorWaitForAuthorPr",
+          "when": "false"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "azureDevops.editorApprovePr",
+          "when": "azureDevops.prDiffActive",
+          "group": "navigation@1"
+        },
+        {
+          "command": "azureDevops.editorWaitForAuthorPr",
+          "when": "azureDevops.prDiffActive",
+          "group": "navigation@2"
+        },
+        {
+          "command": "azureDevops.editorRejectPr",
+          "when": "azureDevops.prDiffActive",
+          "group": "navigation@3"
         }
       ],
       "view/title": [

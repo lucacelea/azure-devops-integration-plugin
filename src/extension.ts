@@ -5,7 +5,7 @@ import { openWorkItem } from './commands/openWorkItem';
 import { setToken, removeToken } from './auth';
 import { createStatusBarItem } from './statusBar';
 import { registerPrSidebar, PrFilter, PrSort } from './prSidebar';
-import { registerPrActions } from './commands/prActions';
+import { registerPrActions, registerEditorVoteCommands } from './commands/prActions';
 import { checkoutPrBranch } from './commands/checkoutBranch';
 import { editExistingPrDescription } from './commands/editPrDescription';
 import { PrChangesProvider, PrFileItem } from './prChangesProvider';
@@ -184,6 +184,22 @@ export function activate(context: vscode.ExtensionContext) {
                 await vscode.commands.executeCommand('vscode.diff', leftUri, rightUri, `${filePath}`);
             }
         }),
+    );
+
+    // Register editor-title vote commands (approve/reject/wait from diff view)
+    registerEditorVoteCommands(context, prProvider);
+
+    // Track when a PR diff editor is active to show editor/title vote buttons.
+    // The 'empty' authority is used for placeholder (empty-file) side of diffs and should be excluded.
+    function updatePrDiffContext() {
+        const editor = vscode.window.activeTextEditor;
+        const isPrDiff = editor?.document.uri.scheme === 'azuredevops-pr'
+            && editor.document.uri.authority !== 'empty';
+        vscode.commands.executeCommand('setContext', 'azureDevops.prDiffActive', !!isPrDiff);
+    }
+    updatePrDiffContext();
+    context.subscriptions.push(
+        vscode.window.onDidChangeActiveTextEditor(() => updatePrDiffContext()),
     );
 
     createStatusBarItem(context);

@@ -15,13 +15,15 @@ View your assigned pull requests directly in the Activity Bar. PRs are grouped i
 Each PR displays rich status information:
 
 - Draft indicator
-- Source branch
+- Source branch and relative age (e.g. `feature · 2d ago`)
 - Author and reviewer names
 - Review status (Approved / Waiting / Rejected)
 - Check status (Passed / Failed / Running)
 - Unresolved comment count
 
-Click any PR to open its changes in VS Code. Use the context menu to open the PR in Azure DevOps, add comments, or edit the PR description when needed.
+Click any PR to open its changes in VS Code. Files with unresolved comments show a badge (e.g. `💬 3`) so you can quickly find where discussion is happening. Use the context menu to open the PR in Azure DevOps, add comments, or edit the PR description when needed.
+
+When viewing a PR diff, approve, reject, and wait-for-author buttons appear in the editor title bar for quick voting without leaving the diff.
 
 ### Comment Notifications And Discussion
 
