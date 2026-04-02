@@ -4,10 +4,8 @@ jest.mock("child_process", () => ({
   exec: jest.fn(),
 }));
 
-jest.mock("vscode", () => ({
-  workspace: {
-    workspaceFolders: [{ uri: { fsPath: "/fake/workspace" } }],
-  },
+jest.mock("../repoSelector", () => ({
+  getActiveWorkspaceFolder: jest.fn().mockReturnValue({ uri: { fsPath: "/fake/workspace" }, name: "workspace", index: 0 }),
 }));
 
 const { exec } = require("child_process") as { exec: jest.Mock };

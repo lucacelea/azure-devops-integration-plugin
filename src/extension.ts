@@ -14,6 +14,7 @@ import { PrCommentController } from './prComments';
 import { PrDiscussionProvider, PrDiscussionItem } from './prDiscussionProvider';
 import { PrCommentDocProvider, PR_COMMENT_SCHEME } from './prCommentDocProvider';
 import { buildPullRequestThreadUrl } from './prLinks';
+import { selectRepository, getActiveWorkspaceFolder, onDidChangeActiveFolder } from './repoSelector';
 
 export function activate(context: vscode.ExtensionContext) {
     const secretStorage = context.secrets;
@@ -26,6 +27,7 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('azureDevops.createPullRequest', () => createPullRequest(secretStorage)),
         vscode.commands.registerCommand('azureDevops.openRepository', openRepository),
         vscode.commands.registerCommand('azureDevops.openWorkItem', openWorkItem),
+        vscode.commands.registerCommand('azureDevops.selectRepository', selectRepository),
         vscode.commands.registerCommand('azureDevops.setToken', async () => {
             await setToken(secretStorage);
             prProvider.refresh();
@@ -184,6 +186,30 @@ export function activate(context: vscode.ExtensionContext) {
                 await vscode.commands.executeCommand('vscode.diff', leftUri, rightUri, `${filePath}`);
             }
         }),
+    );
+
+    // Repository selector status bar item (only shown for multi-root workspaces)
+    const repoStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 99);
+    repoStatusBarItem.command = 'azureDevops.selectRepository';
+    function updateRepoStatusBar() {
+        const folders = vscode.workspace.workspaceFolders;
+        if (folders && folders.length > 1) {
+            const active = getActiveWorkspaceFolder();
+            repoStatusBarItem.text = `$(repo) ${active?.name ?? 'Select Repo'}`;
+            repoStatusBarItem.tooltip = 'Select the repository for Azure DevOps operations';
+            repoStatusBarItem.show();
+        } else {
+            repoStatusBarItem.hide();
+        }
+    }
+    updateRepoStatusBar();
+    context.subscriptions.push(
+        repoStatusBarItem,
+        onDidChangeActiveFolder(() => {
+            updateRepoStatusBar();
+            prProvider.refresh();
+        }),
+        vscode.workspace.onDidChangeWorkspaceFolders(() => updateRepoStatusBar()),
     );
 
     createStatusBarItem(context);

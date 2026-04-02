@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { PullRequestItem } from '../prSidebar';
 import { exec } from 'child_process';
+import { getActiveWorkspaceFolder } from '../repoSelector';
 
 function runGit(command: string, cwd: string): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -27,7 +28,7 @@ export async function checkoutPrBranch(item: PullRequestItem): Promise<void> {
         return;
     }
 
-    const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const cwd = getActiveWorkspaceFolder()?.uri.fsPath;
     if (!cwd) {
         vscode.window.showErrorMessage('No workspace folder open.');
         return;

@@ -1,8 +1,8 @@
-import * as vscode from 'vscode';
 import { exec } from 'child_process';
+import { getActiveWorkspaceFolder } from './repoSelector';
 
 function getWorkspaceFolder(): string | undefined {
-    return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    return getActiveWorkspaceFolder()?.uri.fsPath;
 }
 
 function runGitCommand(command: string): Promise<string | undefined> {

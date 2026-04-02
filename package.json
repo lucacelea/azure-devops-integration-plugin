@@ -47,6 +47,11 @@
         "title": "Azure DevOps: Open Work Item"
       },
       {
+        "command": "azureDevops.selectRepository",
+        "title": "Azure DevOps: Select Repository",
+        "icon": "$(repo)"
+      },
+      {
         "command": "azureDevops.setToken",
         "title": "Azure DevOps: Set Personal Access Token"
       },

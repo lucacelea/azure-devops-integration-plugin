@@ -103,6 +103,8 @@ export const window = {
 export const workspace = {
     openTextDocument: jest.fn(),
     onDidChangeTextDocument: jest.fn(),
+    onDidChangeWorkspaceFolders: jest.fn(),
+    workspaceFolders: undefined as any,
     getConfiguration: jest.fn().mockReturnValue({
         get: jest.fn().mockImplementation((_key: string, defaultValue?: unknown) => defaultValue),
     }),
