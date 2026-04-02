@@ -52,7 +52,7 @@ Open the Command Palette (`Cmd+Shift+P`) and type "Azure DevOps" to access:
 
 | Command | Description |
 |---------|-------------|
-| **Azure DevOps: Create Pull Request** | Creates a PR from the current branch. Checks that the branch is pushed to origin first, offering to push if not. Automatically links detected work items, strips the configured personal branch prefix from the suggested title, appends selected work item titles to the description, and applies a repository PR template when available. |
+| **Azure DevOps: Create Pull Request** | Creates a PR from the current branch. In multi-root workspaces, prompts you to choose which repository to use. Checks that the branch is pushed to origin first, offering to push if not. Automatically links detected work items, strips the configured personal branch prefix from the suggested title, appends selected work item titles to the description, and applies a repository PR template when available. |
 | **Azure DevOps: Open Repository** | Opens the repository in Azure DevOps. |
 | **Azure DevOps: Open Work Item** | Opens a work item by ID. Pre-fills the detected ID from the current branch. |
 | **Azure DevOps: Edit Pull Request Description** | Lets you pick one of your authored pull requests, opens its current description in a temporary markdown editor, and updates the PR when you close the tab. |
