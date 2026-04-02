@@ -105,17 +105,18 @@ If you are adding new behavior that needs org/project/repo info, do not duplicat
 
 Git helpers are intentionally simple in [src/git.ts](/Users/luca/Documents/vscode-extensions/azure-devops-integration/src/git.ts).
 
-Available helpers:
+Available helpers (all accept an optional `cwd?: string` parameter to target a specific workspace folder):
 
-- `getCurrentBranch()`
-- `getDefaultBranch()`
-- `getRepositoryRoot()`
-- `getRemoteUrl()`
+- `getCurrentBranch(cwd?)`
+- `getDefaultBranch(cwd?)`
+- `getRepositoryRoot(cwd?)`
+- `getRemoteUrl(cwd?)`
 
-The extension assumes a single primary workspace folder:
+Multi-root workspace support:
 
-- `vscode.workspace.workspaceFolders?.[0]` is used repeatedly
-- changes for multi-root support would be cross-cutting
+- Most features default to `vscode.workspace.workspaceFolders?.[0]` when no `cwd` is passed
+- PR creation uses `pickRepository()` from `src/repoPicker.ts` to let the user choose a workspace folder when multiple Azure DevOps repos are open
+- Expanding multi-root support to other commands can follow the same pattern: call `pickRepository()` and thread the `cwd` through
 
 ### Work Item Detection
 

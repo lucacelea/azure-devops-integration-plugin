@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Multi-root workspace support for PR creation**: when multiple workspace folders are open, a repository picker now appears (similar to VS Code's native "Create Branch" command) showing each repo name and current branch. If only one folder has an Azure DevOps remote, the picker is skipped automatically.
+
 ## [0.7.0] - 2026-03-27
 
 ### Added

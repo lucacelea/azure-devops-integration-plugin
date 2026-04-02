@@ -7,8 +7,8 @@ const DEFAULT_PATTERNS: RegExp[] = [
     /^(\d+)/,
 ];
 
-export async function getWorkItemId(): Promise<string | undefined> {
-    const branch = await getCurrentBranch();
+export async function getWorkItemId(cwd?: string): Promise<string | undefined> {
+    const branch = await getCurrentBranch(cwd);
     if (!branch) {
         return undefined;
     }

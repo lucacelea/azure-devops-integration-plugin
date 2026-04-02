@@ -101,6 +101,7 @@ export const window = {
     activeTextEditor: undefined as any,
 };
 export const workspace = {
+    workspaceFolders: undefined as any,
     openTextDocument: jest.fn(),
     onDidChangeTextDocument: jest.fn(),
     getConfiguration: jest.fn().mockReturnValue({
