@@ -39,7 +39,7 @@ The extension can notify you when new PR discussion activity is detected during 
 
 The extension automatically extracts work item IDs from your branch name using common patterns:
 
-- `AB#1234`
+- `#1234`
 - `feature/1234-description`
 - `1234-description`
 - `bugfix/1234-description`

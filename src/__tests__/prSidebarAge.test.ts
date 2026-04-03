@@ -60,36 +60,34 @@ describe('formatRelativeTime', () => {
 });
 
 describe('PullRequestItem.fromPullRequest with creationDate', () => {
-    it('includes age in description when creationDate is provided', () => {
+    it('shows age in description when creationDate is provided', () => {
         const date = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
         const pr = makePr({ creationDate: date });
         const item = PullRequestItem.fromPullRequest(pr, 'myorg');
 
-        expect(item.description).toContain('feature');
-        expect(item.description).toContain('2d ago');
+        expect(item.description).toBe('2d ago');
     });
 
-    it('shows only branch name when creationDate is not provided', () => {
+    it('shows empty description when creationDate is not provided', () => {
         const pr = makePr();
         const item = PullRequestItem.fromPullRequest(pr, 'myorg');
 
-        expect(item.description).toBe('feature');
+        expect(item.description).toBe('');
     });
 
-    it('includes Created line in tooltip when creationDate is provided', () => {
-        const date = new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString();
-        const pr = makePr({ creationDate: date });
-        const item = PullRequestItem.fromPullRequest(pr, 'myorg');
-        const tooltipText = (item.tooltip as vscode.MarkdownString).value;
-
-        expect(tooltipText).toContain('Created: 5h ago');
-    });
-
-    it('does not include Created line in tooltip when creationDate is absent', () => {
+    it('shows branch name as first child node', () => {
         const pr = makePr();
         const item = PullRequestItem.fromPullRequest(pr, 'myorg');
-        const tooltipText = (item.tooltip as vscode.MarkdownString).value;
 
-        expect(tooltipText).not.toContain('Created:');
+        expect(item.children).toBeDefined();
+        expect(item.children![0].label).toBe('feature');
+        expect(item.children![0].contextValue).toBe('branchInfo');
+    });
+
+    it('is always collapsible (branch child node)', () => {
+        const pr = makePr();
+        const item = PullRequestItem.fromPullRequest(pr, 'myorg');
+
+        expect(item.collapsibleState).toBe(vscode.TreeItemCollapsibleState.Collapsed);
     });
 });

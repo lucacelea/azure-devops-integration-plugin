@@ -23,29 +23,7 @@ function makePr(overrides: Partial<EnrichedPullRequest> = {}): EnrichedPullReque
 }
 
 describe('PullRequestItem.fromPullRequest with work items', () => {
-    it('includes work items in the tooltip when present', () => {
-        const workItems: WorkItem[] = [
-            { id: 1234, title: 'Implement user authentication', state: 'Active', type: 'User Story' },
-            { id: 5678, title: 'Fix login bug', state: 'New', type: 'Bug' },
-        ];
-        const pr = makePr({ workItems });
-        const item = PullRequestItem.fromPullRequest(pr, 'myorg');
-        const tooltipText = (item.tooltip as vscode.MarkdownString).value;
-
-        expect(tooltipText).toContain('**Work Items:**');
-        expect(tooltipText).toContain('AB#1234 \u2014 Implement user authentication');
-        expect(tooltipText).toContain('AB#5678 \u2014 Fix login bug');
-    });
-
-    it('does not include work items section in tooltip when none are linked', () => {
-        const pr = makePr({ workItems: [] });
-        const item = PullRequestItem.fromPullRequest(pr, 'myorg');
-        const tooltipText = (item.tooltip as vscode.MarkdownString).value;
-
-        expect(tooltipText).not.toContain('Work Items:');
-    });
-
-    it('creates expandable item with a work items summary when work items are present', () => {
+    it('has branch + work items summary when work items are present', () => {
         const workItems: WorkItem[] = [
             { id: 1234, title: 'Some task', state: 'Active', type: 'Task' },
         ];
@@ -53,16 +31,16 @@ describe('PullRequestItem.fromPullRequest with work items', () => {
         const item = PullRequestItem.fromPullRequest(pr, 'myorg');
 
         expect(item.collapsibleState).toBe(vscode.TreeItemCollapsibleState.Collapsed);
-        expect(item.children).toHaveLength(1);
+        expect(item.children).toHaveLength(2);
+        expect(item.children![0].contextValue).toBe('branchInfo');
+        expect(item.children![1].contextValue).toBe('workItemsSummary');
 
-        const summary = item.children![0];
+        const summary = item.children![1];
         expect(summary.label).toBe('Work Items (1)');
-        expect(summary.description).toBe('AB#1234');
-        expect(summary.contextValue).toBe('workItemsSummary');
-        expect(summary.children).toHaveLength(1);
+        expect(summary.description).toBe('#1234');
     });
 
-    it('creates two summary children when both checks and work items exist', () => {
+    it('has branch + checks + work items when both exist', () => {
         const workItems: WorkItem[] = [
             { id: 1234, title: 'Some task', state: 'Active', type: 'Task' },
         ];
@@ -73,17 +51,19 @@ describe('PullRequestItem.fromPullRequest with work items', () => {
         const item = PullRequestItem.fromPullRequest(pr, 'myorg');
 
         expect(item.collapsibleState).toBe(vscode.TreeItemCollapsibleState.Collapsed);
-        expect(item.children).toHaveLength(2);
-        expect(item.children![0].contextValue).toBe('checksSummary');
-        expect(item.children![1].contextValue).toBe('workItemsSummary');
+        expect(item.children).toHaveLength(3);
+        expect(item.children![0].contextValue).toBe('branchInfo');
+        expect(item.children![1].contextValue).toBe('checksSummary');
+        expect(item.children![2].contextValue).toBe('workItemsSummary');
     });
 
-    it('creates non-expandable item when no checks and no work items', () => {
+    it('has only branch child when no checks and no work items', () => {
         const pr = makePr({ checks: [], workItems: [] });
         const item = PullRequestItem.fromPullRequest(pr, 'myorg');
 
-        expect(item.collapsibleState).toBe(vscode.TreeItemCollapsibleState.None);
-        expect(item.children).toBeUndefined();
+        expect(item.collapsibleState).toBe(vscode.TreeItemCollapsibleState.Collapsed);
+        expect(item.children).toHaveLength(1);
+        expect(item.children![0].contextValue).toBe('branchInfo');
     });
 });
 
@@ -94,7 +74,7 @@ describe('PullRequestItem.fromWorkItem', () => {
         const wi: WorkItem = { id: 1234, title: 'Implement feature', state: 'Active', type: 'User Story' };
         const item = PullRequestItem.fromWorkItem(wi, 'myorg', pr);
 
-        expect(item.label).toBe('AB#1234 \u2014 Implement feature');
+        expect(item.label).toBe('Implement feature');
         expect(item.description).toBe('User Story \u00B7 Active');
         expect(item.contextValue).toBe('workItem');
         expect(item.collapsibleState).toBe(vscode.TreeItemCollapsibleState.None);

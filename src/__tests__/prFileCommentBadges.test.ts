@@ -5,7 +5,7 @@ function makeChange(path: string, changeType: string = 'edit'): PrChange {
     return { changeType, item: { path } };
 }
 
-describe('PrFileItem with comment counts', () => {
+describe('PrFileItem layout', () => {
     const baseArgs = {
         org: 'myorg',
         project: 'myproject',
@@ -15,69 +15,51 @@ describe('PrFileItem with comment counts', () => {
         prId: 42,
     };
 
-    it('shows comment count in description when comments exist', () => {
-        const change = makeChange('/src/app.ts');
+    it('shows directory path as description', () => {
+        const change = makeChange('/src/components/app.ts');
         const item = new PrFileItem(
             change, baseArgs.org, baseArgs.project, baseArgs.repoId,
             baseArgs.sourceCommitId, baseArgs.targetCommitId, baseArgs.prId,
-            3,
         );
 
-        expect(item.description).toContain('💬 3');
-        expect(item.description).toContain('/src/app.ts');
+        expect(item.label).toBe('app.ts');
+        expect(item.description).toBe('/src/components');
     });
 
-    it('shows plain path in description when no comments', () => {
-        const change = makeChange('/src/app.ts');
+    it('shows root as description for top-level files', () => {
+        const change = makeChange('/app.ts');
         const item = new PrFileItem(
             change, baseArgs.org, baseArgs.project, baseArgs.repoId,
             baseArgs.sourceCommitId, baseArgs.targetCommitId, baseArgs.prId,
-            0,
         );
 
-        expect(item.description).toBe('/src/app.ts');
-        expect(item.description).not.toContain('💬');
+        expect(item.description).toBe('/');
     });
 
-    it('shows plain path when commentCount is undefined', () => {
+    it('shows only change type in tooltip', () => {
         const change = makeChange('/src/app.ts');
         const item = new PrFileItem(
             change, baseArgs.org, baseArgs.project, baseArgs.repoId,
             baseArgs.sourceCommitId, baseArgs.targetCommitId, baseArgs.prId,
         );
 
-        expect(item.description).toBe('/src/app.ts');
+        expect(item.tooltip).toBe('edit: /src/app.ts');
     });
 
-    it('shows singular comment text in tooltip for one comment', () => {
+    it('is non-collapsible by default (no thread children)', () => {
         const change = makeChange('/src/app.ts');
         const item = new PrFileItem(
             change, baseArgs.org, baseArgs.project, baseArgs.repoId,
             baseArgs.sourceCommitId, baseArgs.targetCommitId, baseArgs.prId,
-            1,
         );
 
-        expect(item.tooltip).toContain('1 unresolved comment');
-        expect(item.tooltip).not.toContain('comments');
-    });
-
-    it('shows plural comment text in tooltip for multiple comments', () => {
-        const change = makeChange('/src/app.ts');
-        const item = new PrFileItem(
-            change, baseArgs.org, baseArgs.project, baseArgs.repoId,
-            baseArgs.sourceCommitId, baseArgs.targetCommitId, baseArgs.prId,
-            5,
-        );
-
-        expect(item.tooltip).toContain('5 unresolved comments');
+        expect(item.collapsibleState).toBe(0); // None
+        expect(item.children).toBeUndefined();
     });
 });
 
-describe('PrChangesProvider.buildFileCommentCounts', () => {
-    // We test the static-like logic by constructing PrFileItems and checking the counts
-    // The actual buildFileCommentCounts is a private method, so we test through PrFileItem construction
-
-    it('correctly handles threads with file paths', () => {
+describe('buildFileCommentCounts logic', () => {
+    it('correctly counts active threads per file', () => {
         const threads: PrThreadSummary[] = [
             { threadId: 1, status: 'active', filePath: '/src/a.ts', latestCommentId: 10 },
             { threadId: 2, status: 'active', filePath: '/src/a.ts', latestCommentId: 20 },
@@ -85,7 +67,6 @@ describe('PrChangesProvider.buildFileCommentCounts', () => {
             { threadId: 4, status: 'fixed', filePath: '/src/a.ts', latestCommentId: 40 },
         ];
 
-        // Count active threads per file manually (same logic as buildFileCommentCounts)
         const counts = new Map<string, number>();
         for (const thread of threads) {
             if (thread.filePath && thread.status === 'active') {

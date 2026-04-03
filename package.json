@@ -152,14 +152,9 @@
         "title": "Open Comment"
       },
       {
-        "command": "azureDevops.refreshPrDiscussion",
-        "title": "Refresh Discussion",
+        "command": "azureDevops.refreshPrChanges",
+        "title": "Refresh",
         "icon": "$(refresh)"
-      },
-      {
-        "command": "azureDevops.clearPrDiscussion",
-        "title": "Clear Discussion",
-        "icon": "$(clear-all)"
       },
       {
         "command": "azureDevops.replyToDiscussionThread",
@@ -205,11 +200,6 @@
         {
           "id": "azureDevops.prChanges",
           "name": "PR Changes",
-          "visibility": "collapsed"
-        },
-        {
-          "id": "azureDevops.prDiscussion",
-          "name": "PR Discussion",
           "visibility": "collapsed"
         }
       ]
@@ -274,23 +264,18 @@
           "group": "navigation"
         },
         {
-          "command": "azureDevops.clearPrChanges",
+          "command": "azureDevops.addGeneralComment",
           "when": "view == azureDevops.prChanges",
           "group": "navigation"
         },
         {
-          "command": "azureDevops.refreshPrDiscussion",
-          "when": "view == azureDevops.prDiscussion",
+          "command": "azureDevops.refreshPrChanges",
+          "when": "view == azureDevops.prChanges",
           "group": "navigation"
         },
         {
-          "command": "azureDevops.clearPrDiscussion",
-          "when": "view == azureDevops.prDiscussion",
-          "group": "navigation"
-        },
-        {
-          "command": "azureDevops.addGeneralComment",
-          "when": "view == azureDevops.prDiscussion",
+          "command": "azureDevops.clearPrChanges",
+          "when": "view == azureDevops.prChanges",
           "group": "navigation"
         }
       ],

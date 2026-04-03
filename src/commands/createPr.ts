@@ -160,7 +160,7 @@ export function buildDefaultPullRequestTitle(
 
   const normalizedTitle = titleSource
     .replace(/^(?:feature|bugfix|hotfix|fix|task|chore)\//, "")
-    .replace(/^\d+[-_]?/, workItemId !== undefined ? `AB#${workItemId} ` : "")
+    .replace(/^\d+[-_]?/, workItemId !== undefined ? `#${workItemId} ` : "")
     .replace(/[-_]/g, " ")
     .trim();
 

@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { getCurrentBranch } from './git';
 
 const DEFAULT_PATTERNS: RegExp[] = [
-    /AB#(\d+)/,
+    /#(\d+)/,
     /^(?:feature|bugfix|hotfix|fix|task|chore)\/(\d+)/,
     /^(\d+)/,
 ];

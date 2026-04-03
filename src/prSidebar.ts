@@ -136,77 +136,29 @@ export class PullRequestItem extends vscode.TreeItem {
         // --- Label ---
         const label = pr.isDraft ? `[Draft] ${pr.title}` : pr.title;
 
-        // --- Description: branch name + age ---
+        // --- Description: age only ---
         const age = pr.creationDate ? formatRelativeTime(pr.creationDate) : '';
-        const description = age ? `${branch} · ${age}` : branch;
 
-        // --- Tooltip: plain markdown (no codicons — they don't render reliably in tree tooltips) ---
-        const commentsText = pr.unresolvedCommentCount > 0
-            ? `\u25A0 Unresolved comments: **${pr.unresolvedCommentCount}**`
-            : '\u2714 No unresolved comments';
-
-        const reviewerLines = reviewers.map((r) => {
-            const symbol =
-                r.vote >= 5    ? '\u2714' :
-                r.vote === -5  ? '\u25CB' :
-                r.vote === -10 ? '\u2718' :
-                '\u2013';
-            const rLabel =
-                r.vote === 10  ? 'approved' :
-                r.vote === 5   ? 'approved with suggestions' :
-                r.vote === -5  ? 'waiting for author' :
-                r.vote === -10 ? 'rejected' :
-                'no vote';
-            return `- ${symbol} ${r.displayName} \u2014 ${rLabel}`;
-        });
-
-        const workItems = pr.workItems ?? [];
-        const workItemLines = workItems.map(
-            (wi) => `- AB#${wi.id} \u2014 ${wi.title}`
-        );
-
-        const draftLine = pr.isDraft ? '**Draft**\n\n' : '';
-        const ageLine = pr.creationDate ? `Created: ${age}  \n` : '';
-
-        const workItemsSection = workItemLines.length > 0
-            ? `\n\n---\n\n**Work Items:**\n\n${workItemLines.join('\n')}`
-            : '';
-
-        const tooltip = new vscode.MarkdownString(
-            `**${pr.title}** #${pr.pullRequestId}\n\n` +
-            draftLine +
-            `Author: ${pr.createdBy.displayName}  \n` +
-            `Branch: ${branch}  \n` +
-            ageLine +
-            `\n---\n\n` +
-            `${commentsText}\n\n` +
-            `---\n\n` +
-            (reviewerLines.length > 0
-                ? `**Reviewers:**\n\n${reviewerLines.join('\n')}`
-                : 'No reviewers assigned') +
-            workItemsSection
-        );
-
-        // --- Build summary child nodes ---
+        // --- Build child nodes ---
         const checks = pr.checks ?? [];
-        const summaryChildren: PullRequestItem[] = [];
+        const workItems = pr.workItems ?? [];
+        const children: PullRequestItem[] = [];
 
+        children.push(PullRequestItem.fromBranch(branch));
         if (checks.length > 0) {
-            summaryChildren.push(PullRequestItem.checksSummary(checks));
+            children.push(PullRequestItem.checksSummary(checks));
         }
         if (workItems.length > 0) {
-            summaryChildren.push(PullRequestItem.workItemsSummary(workItems, org, pr));
+            children.push(PullRequestItem.workItemsSummary(workItems, org, pr));
         }
 
         // --- Assemble item ---
-        const hasChildren = summaryChildren.length > 0;
         const item = new PullRequestItem(
             label,
-            hasChildren ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
-            hasChildren ? summaryChildren : undefined
+            vscode.TreeItemCollapsibleState.Collapsed,
+            children
         );
-        item.description = description;
-        item.tooltip = tooltip;
+        item.description = age;
         item.iconPath = new vscode.ThemeIcon(iconId, iconColor);
         item.contextValue = 'pullRequest';
         item.command = {
@@ -218,6 +170,13 @@ export class PullRequestItem extends vscode.TreeItem {
         item.pr = pr;
         item.org = org;
 
+        return item;
+    }
+
+    static fromBranch(branch: string): PullRequestItem {
+        const item = new PullRequestItem(branch, vscode.TreeItemCollapsibleState.None);
+        item.iconPath = new vscode.ThemeIcon('git-branch');
+        item.contextValue = 'branchInfo';
         return item;
     }
 
@@ -310,7 +269,7 @@ export class PullRequestItem extends vscode.TreeItem {
             vscode.TreeItemCollapsibleState.Collapsed,
             children
         );
-        item.description = workItems.map((wi) => `AB#${wi.id}`).join(', ');
+        item.description = workItems.map((wi) => `#${wi.id}`).join(', ');
         item.iconPath = new vscode.ThemeIcon('bookmark');
         item.contextValue = 'workItemsSummary';
 
@@ -321,7 +280,7 @@ export class PullRequestItem extends vscode.TreeItem {
         const iconId = WORK_ITEM_TYPE_ICONS[wi.type] ?? 'symbol-field';
 
         const item = new PullRequestItem(
-            `AB#${wi.id} \u2014 ${wi.title}`,
+            wi.title,
             vscode.TreeItemCollapsibleState.None
         );
         item.description = `${wi.type} \u00B7 ${wi.state}`;

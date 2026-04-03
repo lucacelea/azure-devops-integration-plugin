@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { PrDiscussionProvider } from '../prDiscussionProvider';
+import { PrChangesProvider } from '../prChangesProvider';
 import { EnrichedPullRequest } from '../api';
 
 jest.mock('../auth', () => ({
@@ -9,6 +9,7 @@ jest.mock('../auth', () => ({
 jest.mock('../api', () => ({
     getPrThreads: jest.fn(),
     getPrIterations: jest.fn(),
+    getPrChanges: jest.fn(),
     addPullRequestComment: jest.fn(),
     replyToThread: jest.fn(),
 }));
@@ -37,7 +38,7 @@ function makePr(): EnrichedPullRequest {
     };
 }
 
-describe('PrDiscussionProvider.openThreadById', () => {
+describe('PrChangesProvider.openThreadById', () => {
     beforeEach(() => {
         api.getPrIterations.mockReset();
         api.getPrThreads.mockReset();
@@ -71,7 +72,7 @@ describe('PrDiscussionProvider.openThreadById', () => {
             }],
         }]);
 
-        const provider = new PrDiscussionProvider({} as any);
+        const provider = new PrChangesProvider({} as any);
         const result = await provider.openThreadById(makePr(), 'org', 9);
 
         expect(result).toBe(true);
@@ -104,7 +105,7 @@ describe('PrDiscussionProvider.openThreadById', () => {
         }]);
         (vscode.workspace.openTextDocument as jest.Mock).mockResolvedValue({ uri: 'doc' });
 
-        const provider = new PrDiscussionProvider({} as any);
+        const provider = new PrChangesProvider({} as any);
         const result = await provider.openThreadById(makePr(), 'org', 11);
 
         expect(result).toBe(true);

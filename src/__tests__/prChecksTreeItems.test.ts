@@ -23,15 +23,16 @@ function makePr(overrides: Partial<EnrichedPullRequest> = {}): EnrichedPullReque
 }
 
 describe('PullRequestItem.fromPullRequest with checks', () => {
-    it('creates a non-expandable item when there are no checks', () => {
+    it('has only the branch child when there are no checks', () => {
         const pr = makePr({ checks: [] });
         const item = PullRequestItem.fromPullRequest(pr, 'myorg');
 
-        expect(item.collapsibleState).toBe(vscode.TreeItemCollapsibleState.None);
-        expect(item.children).toBeUndefined();
+        expect(item.collapsibleState).toBe(vscode.TreeItemCollapsibleState.Collapsed);
+        expect(item.children).toHaveLength(1);
+        expect(item.children![0].contextValue).toBe('branchInfo');
     });
 
-    it('creates an expandable item with a checks summary when there are checks', () => {
+    it('has branch + checks summary when there are checks', () => {
         const checks: PolicyCheck[] = [
             { name: 'Build Validation', status: 'approved', isBlocking: true },
             { name: 'Code Coverage', status: 'rejected', isBlocking: true },
@@ -40,9 +41,9 @@ describe('PullRequestItem.fromPullRequest with checks', () => {
         const item = PullRequestItem.fromPullRequest(pr, 'myorg');
 
         expect(item.collapsibleState).toBe(vscode.TreeItemCollapsibleState.Collapsed);
-        expect(item.children).toHaveLength(1);
+        expect(item.children).toHaveLength(2);
 
-        const summary = item.children![0];
+        const summary = item.children![1];
         expect(summary.label).toBe('Checks (1/2)');
         expect(summary.description).toBe('1 failed');
         expect(summary.contextValue).toBe('checksSummary');
@@ -57,14 +58,6 @@ describe('PullRequestItem.fromPullRequest with checks', () => {
         const item = PullRequestItem.fromPullRequest(pr, 'myorg');
 
         expect(item.contextValue).toBe('pullRequest');
-    });
-
-    it('does not include checks text in the tooltip', () => {
-        const pr = makePr({ checksStatus: 'failed', checks: [{ name: 'Build', status: 'rejected', isBlocking: true }] });
-        const item = PullRequestItem.fromPullRequest(pr, 'myorg');
-        const tooltipText = (item.tooltip as vscode.MarkdownString).value;
-
-        expect(tooltipText).not.toContain('Checks:');
     });
 });
 

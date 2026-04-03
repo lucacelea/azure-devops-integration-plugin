@@ -124,7 +124,7 @@ Work item parsing is in [src/workItem.ts](/Users/luca/Documents/vscode-extension
 
 Default branch patterns:
 
-- `AB#1234`
+- `#1234`
 - `feature/1234-...`
 - `bugfix/1234-...`
 - `hotfix/1234-...`

@@ -7,7 +7,7 @@ describe("buildDefaultPullRequestTitle", () => {
         branchPrefix: "lucac/",
         workItemId: 1234,
       }),
-    ).toBe("AB#1234 Fix login");
+    ).toBe("#1234 Fix login");
   });
 
   it("strips only the configured prefix when no work item is present", () => {
@@ -32,15 +32,15 @@ describe("buildDefaultPullRequestTitle", () => {
       buildDefaultPullRequestTitle("feature/1234-fix-login", {
         workItemId: 1234,
       }),
-    ).toBe("AB#1234 Fix login");
+    ).toBe("#1234 Fix login");
   });
 
-  it("preserves embedded AB work item references in the branch name", () => {
+  it("preserves embedded work item references in the branch name", () => {
     expect(
-      buildDefaultPullRequestTitle("lucac/feature/AB#1234-fix-login", {
+      buildDefaultPullRequestTitle("lucac/feature/#1234-fix-login", {
         branchPrefix: "lucac/",
       }),
-    ).toBe("AB#1234 Fix login");
+    ).toBe("#1234 Fix login");
   });
 
   it("normalizes underscore and dash separators", () => {
@@ -49,7 +49,7 @@ describe("buildDefaultPullRequestTitle", () => {
         branchPrefix: "lucac/",
         workItemId: 1234,
       }),
-    ).toBe("AB#1234 Fix login name");
+    ).toBe("#1234 Fix login name");
   });
 
   it("preserves existing capitalization after the first character", () => {
