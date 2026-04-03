@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { createPullRequest } from './commands/createPr';
 import { openRepository } from './commands/openRepo';
 import { openWorkItem } from './commands/openWorkItem';
+import { createTaskForPr } from './commands/createTask';
 import { setToken, removeToken } from './auth';
 import { createStatusBarItem } from './statusBar';
 import { registerPrSidebar, PrFilter, PrSort } from './prSidebar';
@@ -23,6 +24,7 @@ export function activate(context: vscode.ExtensionContext) {
     // Register commands
     context.subscriptions.push(
         vscode.commands.registerCommand('azureDevops.createPullRequest', () => createPullRequest(secretStorage)),
+        vscode.commands.registerCommand('azureDevops.createTaskForPr', () => createTaskForPr(secretStorage)),
         vscode.commands.registerCommand('azureDevops.openRepository', openRepository),
         vscode.commands.registerCommand('azureDevops.openWorkItem', openWorkItem),
         vscode.commands.registerCommand('azureDevops.setToken', async () => {

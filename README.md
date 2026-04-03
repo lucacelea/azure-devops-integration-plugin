@@ -50,6 +50,22 @@ The extension automatically extracts work item IDs from your branch name using c
 
 The detected work item is shown in the **status bar** (e.g., `WI #1234`) and clicking it opens the work item in Azure DevOps. Pull requests in the sidebar also show any linked work items, and selecting one opens that work item in the browser.
 
+### Sprint Task Creation
+
+Use **Azure DevOps: Create Task for PR** to create a Task in the active sprint without leaving VS Code.
+
+- In multi-root workspaces, the command first asks which repository to use
+- The extension looks up the current iteration for your configured team
+- If Azure DevOps reports multiple current iterations, you choose the sprint explicitly instead of relying on server order
+- It lets you choose a parent backlog item from that sprint, filtered to the team's configured area paths
+- The new task is assigned to your current Azure DevOps identity
+- You can optionally force the initial task state with `azureDevops.taskState` such as `Active`
+- The task title is pre-filled from the current branch name after removing your configured personal branch prefix and common branch-type prefixes like `feature/` or `task/`
+- If the current branch already has an open pull request, the new task is linked to that PR automatically
+
+If your Azure DevOps sprint URL looks like `/.../_sprints/taskboard/stackportal/...`, set `azureDevops.team` to `stackportal`.
+The parent picker will then use that team's area-path configuration, so items from sibling areas such as `stackinsights` are excluded unless the team itself is configured to include them.
+
 ### Commands
 
 Open the Command Palette (`Cmd+Shift+P`) and type "Azure DevOps" to access:
@@ -57,6 +73,7 @@ Open the Command Palette (`Cmd+Shift+P`) and type "Azure DevOps" to access:
 | Command | Description |
 |---------|-------------|
 | **Azure DevOps: Create Pull Request** | Creates a PR from the current branch. In multi-root workspaces, prompts you to choose which repository to use. Checks that the branch is pushed to origin first, offering to push if not. Automatically links detected work items, strips the configured personal branch prefix from the suggested title, appends selected work item titles to the description, and applies a repository PR template when available. |
+| **Azure DevOps: Create Task for PR** | Creates a Task work item in the current sprint under a selected parent (User Story, Bug, or Enabler). Assigns it to you, suggests a title from the current branch, and links it to the current branch's pull request when one is found. |
 | **Azure DevOps: Open Repository** | Opens the repository in Azure DevOps. |
 | **Azure DevOps: Open Work Item** | Opens a work item by ID. Pre-fills the detected ID from the current branch. |
 | **Azure DevOps: Edit Pull Request Description** | Lets you pick one of your authored pull requests, opens its current description in a temporary markdown editor, and updates the PR when you close the tab. |
@@ -101,6 +118,8 @@ All settings are optional — the extension auto-detects values from your git re
 | `azureDevops.project` | Auto-detected | Azure DevOps project name |
 | `azureDevops.repository` | Auto-detected | Azure DevOps repository name |
 | `azureDevops.workItemProject` | Same as project | Project for work items, if different from the repo's project |
+| `azureDevops.team` | `"{project} Team"` | Azure DevOps team used when querying the current sprint/iteration for task creation. This should match the team segment from your sprint board URL, for example `stackportal` in `.../_sprints/taskboard/stackportal/...` |
+| `azureDevops.taskState` | `""` | Optional initial state for newly created Task work items, for example `Active`. Leave empty to use the process default |
 | `azureDevops.branchPrefix` | `""` | Personal branch prefix to strip (e.g., `lucac/`) when parsing branch names and generating the default PR title |
 | `azureDevops.workItemPattern` | Built-in patterns | Custom regex to extract work item ID from branch name |
 | `azureDevops.pullRequestLinkedWorkItemState` | `""` | Optional state to set on linked work item when creating a PR (leave empty to disable) |

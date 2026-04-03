@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Create Task for PR**: new `Azure DevOps: Create Task for PR` command creates a Task work item in the active sprint under a selected parent backlog item, assigns it to you, and links it to the current branch's pull request when one exists.
 - **Direct links from PR checks to pipeline runs**: policy checks backed by Azure DevOps build validation now open the corresponding pipeline results page in the browser when you click the check item in the PR sidebar.
 - **Edit existing PR titles**: pull requests in the sidebar now include an `Edit Title` action that opens an input box with the current title, updates the pull request in Azure DevOps, and refreshes the list after a successful change.
 - **Linked work items in the PR sidebar**: pull requests now show a `Work Items` child node listing linked items with their type and state, and clicking an item opens it in Azure DevOps.
@@ -18,8 +19,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Configurable sprint team selection**: task creation now uses the new `azureDevops.team` setting for current-iteration queries, defaulting to `{project} Team` when left empty.
+- **Task creation now uses the selected repository context**: in multi-root workspaces, `Create Task for PR` now resolves organization, project, branch, and work item project from the repository you picked instead of always falling back to the first workspace folder.
+- **Task creation now assigns to the authenticated user with a resolvable identity value**: new tasks use your Azure DevOps sign-in identity instead of the raw connection-data GUID, which Azure DevOps rejects for `Assigned To`.
+- **Task title suggestions match branch naming better**: default task titles now strip the configured personal branch prefix and common prefixes such as `feature/`, `fix/`, `task/`, and `chore/`.
 - **PR sidebar summaries are more compact**: each pull request now shows relative age in the row description, while branch name, policy checks, and linked work items move into expandable child nodes.
 - **Comment navigation now targets the unified `PR Changes` view**: notification actions and comment-opening commands reuse the same review tree instead of switching between separate changes and discussion panels.
+
+### Fixed
+
+- **Sprint iteration queries escape quoted paths correctly**: task creation no longer breaks when the active iteration path contains apostrophes.
+- **Multiple current iterations no longer silently pick the first result**: when Azure DevOps returns more than one current sprint for the configured team, the extension now prompts you to choose the intended sprint explicitly.
+- **Task creation can now set an explicit initial state**: use the new `azureDevops.taskState` setting to create tasks directly in states such as `Active` when your process allows it.
+- **Sprint parent picker now respects the team's area paths**: backlog items are filtered by both the chosen sprint and the selected team's configured area paths, so unrelated areas in the same iteration are no longer shown.
 
 ### Removed
 
