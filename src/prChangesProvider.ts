@@ -272,15 +272,18 @@ export class PrChangesProvider implements vscode.TreeDataProvider<PrChangesTreeI
                     return item;
                 });
 
-            const rootItems: PrChangesTreeItem[] = [...fileItems];
+            const rootItems: PrChangesTreeItem[] = [];
 
-            // Add general comments node if any
+            // Show general comments first so they are easy to spot without
+            // scrolling past the changed files list.
             if (generalThreads.length > 0) {
                 const generalChildren = generalThreads.map((t) =>
                     new PrCommentThreadItem(t, org, project, repoId, pr.pullRequestId, sourceCommitId, targetCommitId)
                 );
                 rootItems.push(new PrGeneralCommentsItem(generalChildren));
             }
+
+            rootItems.push(...fileItems);
 
             return rootItems;
         } catch (e: any) {

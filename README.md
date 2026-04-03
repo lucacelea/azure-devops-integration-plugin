@@ -1,6 +1,6 @@
 # Azure DevOps Integration for VS Code
 
-A VS Code extension for Azure DevOps. Browse pull requests in a sidebar grouped by "Created by me," "Assigned to me," and "My teams," with review, check, and comment status. Auto-detects config from git remotes and extracts work item IDs from branch names. Create PRs, edit PR descriptions, open repos, and link work items — all without leaving the editor.
+A VS Code extension for Azure DevOps. Browse pull requests in a sidebar grouped by "Created by me," "Assigned to me," and "My teams," review changes and discussion in a unified tree, inspect linked work items, and create PRs without leaving the editor.
 
 ## Features
 
@@ -14,14 +14,13 @@ View your assigned pull requests directly in the Activity Bar. PRs are grouped i
 
 Each PR displays rich status information:
 
-- Draft indicator
-- Source branch and relative age (e.g. `feature · 2d ago`)
-- Author and reviewer names
-- Review status (Approved / Waiting / Rejected)
-- Check status (Passed / Failed / Running)
-- Unresolved comment count
+- Draft and review/check status via the PR icon
+- Relative age (e.g. `2d ago`)
+- Source branch as an expandable child item
+- Check summary with per-check child items when policies exist
+- Linked work items as expandable child items, including type and state
 
-Click any PR to open its changes in VS Code. Files with unresolved comments show a badge (e.g. `💬 3`) so you can quickly find where discussion is happening. Use the context menu to open the PR in Azure DevOps, add comments, or edit the PR description when needed.
+Click any PR to open its `PR Changes` view in VS Code. Changed files can expand to show file-level discussion threads, and general PR comments are grouped under a `General Comments` node. Use the context menu to open the PR in Azure DevOps, add comments, or edit the PR description when needed.
 
 When viewing a PR diff, approve, reject, and wait-for-author buttons appear in the editor title bar for quick voting without leaving the diff.
 
@@ -44,7 +43,7 @@ The extension automatically extracts work item IDs from your branch name using c
 - `1234-description`
 - `bugfix/1234-description`
 
-The detected work item is shown in the **status bar** (e.g., `WI #1234`) and clicking it opens the work item in Azure DevOps.
+The detected work item is shown in the **status bar** (e.g., `WI #1234`) and clicking it opens the work item in Azure DevOps. Pull requests in the sidebar also show any linked work items, and selecting one opens that work item in the browser.
 
 ### Commands
 
