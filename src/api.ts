@@ -97,11 +97,55 @@ function authHeaders(token: string): Record<string, string> {
     };
 }
 
+function getStringProperty(record: Record<string, unknown>, key: string): string | undefined {
+    const value = record[key];
+    return typeof value === 'string' && value.trim() ? value : undefined;
+}
+
 export async function getUserId(org: string, token: string): Promise<string> {
     const url = `https://dev.azure.com/${encodeURIComponent(org)}/_apis/connectiondata`;
     const body = await httpsGet(url, authHeaders(token));
     const data = JSON.parse(body);
     return data.authenticatedUser.id;
+}
+
+export async function getCurrentUserAssignmentValue(org: string, token: string): Promise<string | undefined> {
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/_apis/connectiondata`;
+    const body = await httpsGet(url, authHeaders(token));
+    const data = JSON.parse(body);
+    const user = (data.authenticatedUser ?? {}) as Record<string, unknown>;
+
+    const directCandidates = [
+        getStringProperty(user, 'uniqueName'),
+        getStringProperty(user, 'preferredEmail'),
+        getStringProperty(user, 'mailAddress'),
+        getStringProperty(user, 'providerDisplayName'),
+        getStringProperty(user, 'customDisplayName'),
+        getStringProperty(user, 'displayName'),
+    ];
+    for (const candidate of directCandidates) {
+        if (candidate) {
+            return candidate;
+        }
+    }
+
+    const properties = user.properties;
+    if (properties && typeof properties === 'object') {
+        const propertyRecord = properties as Record<string, unknown>;
+        const nestedCandidates = [
+            getStringProperty(propertyRecord, 'Account'),
+            getStringProperty(propertyRecord, 'Mail'),
+            getStringProperty(propertyRecord, 'Email'),
+            getStringProperty(propertyRecord, 'SignInAddress'),
+        ];
+        for (const candidate of nestedCandidates) {
+            if (candidate) {
+                return candidate;
+            }
+        }
+    }
+
+    return undefined;
 }
 
 async function fetchPullRequests(
@@ -879,19 +923,20 @@ export interface Iteration {
     path: string;
 }
 
-export async function getCurrentIteration(
+export async function getCurrentIterations(
     org: string, project: string, team: string, token: string
-): Promise<Iteration | undefined> {
+): Promise<Iteration[]> {
     const url =
         `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/${encodeURIComponent(team)}` +
         `/_apis/work/teamsettings/iterations?$timeframe=current&api-version=7.1`;
     const body = await httpsGet(url, authHeaders(token));
     const data = JSON.parse(body);
     const iterations = data.value as Array<{ id: string; name: string; path: string }>;
-    if (iterations.length === 0) {
-        return undefined;
-    }
-    return { id: iterations[0].id, name: iterations[0].name, path: iterations[0].path };
+    return iterations.map((iteration) => ({
+        id: iteration.id,
+        name: iteration.name,
+        path: iteration.path,
+    }));
 }
 
 export async function getIterationWorkItems(
@@ -945,6 +990,7 @@ export interface CreateWorkItemOptions {
     title: string;
     iterationPath: string;
     parentId: number;
+    state?: string;
     assignTo?: string;
     token: string;
 }
@@ -967,6 +1013,10 @@ export async function createWorkItem(options: CreateWorkItemOptions): Promise<{ 
             },
         },
     ];
+
+    if (fields.state) {
+        patchOps.push({ op: 'add', path: '/fields/System.State', value: fields.state });
+    }
 
     if (fields.assignTo) {
         patchOps.push({ op: 'add', path: '/fields/System.AssignedTo', value: fields.assignTo });

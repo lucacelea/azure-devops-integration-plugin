@@ -1,15 +1,16 @@
 import * as vscode from 'vscode';
 import { getDevOpsConfig, getWorkItemProject } from '../config';
 import { getToken } from '../auth';
-import { getCurrentBranch } from '../git';
+import { pickRepository } from '../repoPicker';
 import {
-    getCurrentIteration,
+    getCurrentIterations,
     getIterationWorkItems,
     createWorkItem,
     findPullRequestForBranch,
     linkWorkItemToPullRequest,
-    getUserId,
+    getCurrentUserAssignmentValue,
     getRepositoryId,
+    Iteration,
     WorkItem,
 } from '../api';
 
@@ -35,13 +36,45 @@ export function formatBranchAsTitle(branch: string | undefined): string {
     return subject.charAt(0).toUpperCase() + subject.slice(1);
 }
 
+async function pickIteration(iterations: Iteration[]): Promise<Iteration | undefined> {
+    if (iterations.length === 0) {
+        return undefined;
+    }
+
+    if (iterations.length === 1) {
+        return iterations[0];
+    }
+
+    const picked = await vscode.window.showQuickPick(
+        iterations.map((iteration) => ({
+            label: iteration.name,
+            description: iteration.path,
+            iteration,
+        })),
+        {
+            title: 'Choose a sprint',
+            placeHolder: 'Azure DevOps returned multiple current iterations. Choose the sprint to use.',
+        },
+    );
+
+    return picked?.iteration;
+}
+
 export async function createTaskForPr(
     secretStorage: vscode.SecretStorage,
 ): Promise<void> {
     try {
+        const repo = await pickRepository();
+        if (!repo) {
+            return;
+        }
+
+        const cwd = repo.folder.uri.fsPath;
+        const branch = repo.branch || undefined;
+
         let config;
         try {
-            config = await getDevOpsConfig();
+            config = await getDevOpsConfig(cwd);
         } catch (error) {
             vscode.window.showErrorMessage(
                 `Failed to get Azure DevOps configuration: ${error instanceof Error ? error.message : error}`,
@@ -57,23 +90,28 @@ export async function createTaskForPr(
             return;
         }
 
-        const project = await getWorkItemProject();
-        const team = vscode.workspace.getConfiguration('azureDevops')
-            .get<string>('team', '') || `${project} Team`;
+        const project = await getWorkItemProject(cwd);
+        const azureDevopsConfig = vscode.workspace.getConfiguration('azureDevops');
+        const team = azureDevopsConfig.get<string>('team', '') || `${project} Team`;
+        const taskState = azureDevopsConfig.get<string>('taskState', '').trim();
 
-        // Fetch current iteration
-        const iteration = await vscode.window.withProgress(
+        const iterations = await vscode.window.withProgress(
             {
                 location: vscode.ProgressLocation.Notification,
                 title: 'Fetching current sprint...',
             },
-            () => getCurrentIteration(config.organization, project, team, token),
+            () => getCurrentIterations(config.organization, project, team, token),
         );
 
-        if (!iteration) {
+        if (iterations.length === 0) {
             vscode.window.showErrorMessage(
                 'Could not find the current sprint/iteration. Make sure your team has an active iteration configured.',
             );
+            return;
+        }
+
+        const iteration = await pickIteration(iterations);
+        if (!iteration) {
             return;
         }
 
@@ -109,7 +147,6 @@ export async function createTaskForPr(
         }
 
         // Prompt for task title
-        const branch = await getCurrentBranch();
         const defaultTitle = formatBranchAsTitle(branch);
 
         const taskTitle = await vscode.window.showInputBox({
@@ -123,7 +160,7 @@ export async function createTaskForPr(
         }
 
         // Get current user for assignment
-        const userId = await getUserId(config.organization, token);
+        const assignTo = await getCurrentUserAssignmentValue(config.organization, token);
 
         // Create the task
         const task = await vscode.window.withProgress(
@@ -138,7 +175,8 @@ export async function createTaskForPr(
                     title: taskTitle,
                     iterationPath: iteration.path,
                     parentId: selected.workItem.id,
-                    assignTo: userId,
+                    state: taskState || undefined,
+                    assignTo,
                     token,
                 }),
         );

@@ -20,6 +20,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - **Configurable sprint team selection**: task creation now uses the new `azureDevops.team` setting for current-iteration queries, defaulting to `{project} Team` when left empty.
+- **Task creation now uses the selected repository context**: in multi-root workspaces, `Create Task for PR` now resolves organization, project, branch, and work item project from the repository you picked instead of always falling back to the first workspace folder.
+- **Task creation now assigns to the authenticated user with a resolvable identity value**: new tasks use your Azure DevOps sign-in identity instead of the raw connection-data GUID, which Azure DevOps rejects for `Assigned To`.
 - **Task title suggestions match branch naming better**: default task titles now strip the configured personal branch prefix and common prefixes such as `feature/`, `fix/`, `task/`, and `chore/`.
 - **PR sidebar summaries are more compact**: each pull request now shows relative age in the row description, while branch name, policy checks, and linked work items move into expandable child nodes.
 - **Comment navigation now targets the unified `PR Changes` view**: notification actions and comment-opening commands reuse the same review tree instead of switching between separate changes and discussion panels.
@@ -27,6 +29,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - **Sprint iteration queries escape quoted paths correctly**: task creation no longer breaks when the active iteration path contains apostrophes.
+- **Multiple current iterations no longer silently pick the first result**: when Azure DevOps returns more than one current sprint for the configured team, the extension now prompts you to choose the intended sprint explicitly.
+- **Task creation can now set an explicit initial state**: use the new `azureDevops.taskState` setting to create tasks directly in states such as `Active` when your process allows it.
 
 ### Removed
 

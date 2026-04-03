@@ -14,32 +14,37 @@ jest.mock('../auth', () => ({
     getToken: jest.fn().mockResolvedValue('token'),
 }));
 
-jest.mock('../git', () => ({
-    getCurrentBranch: jest.fn().mockResolvedValue('feature/1234-my-task'),
+jest.mock('../repoPicker', () => ({
+    pickRepository: jest.fn().mockResolvedValue({
+        folder: { uri: { fsPath: '/picked-repo' } },
+        branch: 'feature/1234-my-task',
+    }),
 }));
 
 jest.mock('../api', () => ({
-    getCurrentIteration: jest.fn().mockResolvedValue({
-        id: 'iter-1',
-        name: 'Sprint 5',
-        path: 'proj\\Sprint 5',
-    }),
+    getCurrentIterations: jest.fn().mockResolvedValue([
+        {
+            id: 'iter-1',
+            name: 'Sprint 5',
+            path: 'proj\\Sprint 5',
+        },
+    ]),
     getIterationWorkItems: jest.fn().mockResolvedValue([
         { id: 100, title: 'User story one', state: 'Active', type: 'User Story' },
         { id: 200, title: 'Bug two', state: 'Active', type: 'Bug' },
     ]),
     createWorkItem: jest.fn().mockResolvedValue({ id: 999, url: 'https://dev.azure.com/org/proj/_workitems/edit/999' }),
-    getUserId: jest.fn().mockResolvedValue('user-id'),
+    getCurrentUserAssignmentValue: jest.fn().mockResolvedValue('me@example.com'),
     getRepositoryId: jest.fn().mockResolvedValue('repo-id'),
     findPullRequestForBranch: jest.fn().mockResolvedValue(undefined),
     linkWorkItemToPullRequest: jest.fn(),
 }));
 
 const api = jest.requireMock('../api') as {
-    getCurrentIteration: jest.Mock;
+    getCurrentIterations: jest.Mock;
     getIterationWorkItems: jest.Mock;
     createWorkItem: jest.Mock;
-    getUserId: jest.Mock;
+    getCurrentUserAssignmentValue: jest.Mock;
     getRepositoryId: jest.Mock;
     findPullRequestForBranch: jest.Mock;
     linkWorkItemToPullRequest: jest.Mock;
@@ -51,6 +56,11 @@ const auth = jest.requireMock('../auth') as {
 
 const config = jest.requireMock('../config') as {
     getDevOpsConfig: jest.Mock;
+    getWorkItemProject: jest.Mock;
+};
+
+const repoPicker = jest.requireMock('../repoPicker') as {
+    pickRepository: jest.Mock;
 };
 
 describe('createTaskForPr', () => {
@@ -89,7 +99,7 @@ describe('createTaskForPr', () => {
     });
 
     it('shows an error when no current iteration is found', async () => {
-        api.getCurrentIteration.mockResolvedValueOnce(undefined);
+        api.getCurrentIterations.mockResolvedValueOnce([]);
 
         await createTaskForPr({} as vscode.SecretStorage);
 
@@ -142,19 +152,89 @@ describe('createTaskForPr', () => {
 
         await createTaskForPr({} as vscode.SecretStorage);
 
+        expect(config.getDevOpsConfig).toHaveBeenCalledWith('/picked-repo');
+        expect(config.getWorkItemProject).toHaveBeenCalledWith('/picked-repo');
         expect(api.createWorkItem).toHaveBeenCalledWith({
             org: 'org',
             project: 'proj',
             title: 'My new task',
             iterationPath: 'proj\\Sprint 5',
             parentId: 100,
-            assignTo: 'user-id',
+            state: undefined,
+            assignTo: 'me@example.com',
             token: 'token',
         });
         expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
             'Task #999 created.',
             'Open in Browser',
         );
+    });
+
+    it('applies the configured task state when creating a task', async () => {
+        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
+            get: jest.fn().mockImplementation((key: string, defaultValue?: unknown) => {
+                if (key === 'taskState') { return 'Active'; }
+                return defaultValue;
+            }),
+        });
+        (vscode.window.showQuickPick as jest.Mock).mockResolvedValueOnce({
+            label: '#100 User story one',
+            description: 'User Story · Active',
+            workItem: { id: 100, title: 'User story one', state: 'Active', type: 'User Story' },
+        });
+        (vscode.window.showInputBox as jest.Mock).mockResolvedValueOnce('My new task');
+        (vscode.window.showInformationMessage as jest.Mock).mockResolvedValueOnce(undefined);
+
+        await createTaskForPr({} as vscode.SecretStorage);
+
+        expect(api.createWorkItem).toHaveBeenCalledWith(expect.objectContaining({
+            state: 'Active',
+        }));
+    });
+
+    it('lets the user choose a sprint when multiple current iterations are returned', async () => {
+        api.getCurrentIterations.mockResolvedValueOnce([
+            { id: 'iter-1', name: 'Sprint 5', path: 'proj\\Sprint 5' },
+            { id: 'iter-2', name: 'Sprint 6', path: 'proj\\Sprint 6' },
+        ]);
+        (vscode.window.showQuickPick as jest.Mock)
+            .mockResolvedValueOnce({
+                label: 'Sprint 6',
+                description: 'proj\\Sprint 6',
+                iteration: { id: 'iter-2', name: 'Sprint 6', path: 'proj\\Sprint 6' },
+            })
+            .mockResolvedValueOnce({
+                label: '#100 User story one',
+                description: 'User Story · Active',
+                workItem: { id: 100, title: 'User story one', state: 'Active', type: 'User Story' },
+            });
+        (vscode.window.showInputBox as jest.Mock).mockResolvedValueOnce('My new task');
+        (vscode.window.showInformationMessage as jest.Mock).mockResolvedValueOnce(undefined);
+
+        await createTaskForPr({} as vscode.SecretStorage);
+
+        expect(api.getIterationWorkItems).toHaveBeenCalledWith(
+            'org',
+            'proj',
+            'proj\\Sprint 6',
+            'token',
+        );
+        expect(api.createWorkItem).toHaveBeenCalledWith(expect.objectContaining({
+            iterationPath: 'proj\\Sprint 6',
+        }));
+    });
+
+    it('stops when the user cancels sprint selection for multiple current iterations', async () => {
+        api.getCurrentIterations.mockResolvedValueOnce([
+            { id: 'iter-1', name: 'Sprint 5', path: 'proj\\Sprint 5' },
+            { id: 'iter-2', name: 'Sprint 6', path: 'proj\\Sprint 6' },
+        ]);
+        (vscode.window.showQuickPick as jest.Mock).mockResolvedValueOnce(undefined);
+
+        await createTaskForPr({} as vscode.SecretStorage);
+
+        expect(api.getIterationWorkItems).not.toHaveBeenCalled();
+        expect(api.createWorkItem).not.toHaveBeenCalled();
     });
 
     it('links the task to a PR when one exists for the current branch', async () => {
@@ -207,6 +287,15 @@ describe('createTaskForPr', () => {
             'Task #999 created.',
             'Open in Browser',
         );
+    });
+
+    it('stops when the repository picker is cancelled', async () => {
+        repoPicker.pickRepository.mockResolvedValueOnce(undefined);
+
+        await createTaskForPr({} as vscode.SecretStorage);
+
+        expect(config.getDevOpsConfig).not.toHaveBeenCalled();
+        expect(api.createWorkItem).not.toHaveBeenCalled();
     });
 });
 

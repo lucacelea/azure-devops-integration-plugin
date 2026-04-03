@@ -514,7 +514,12 @@
         "azureDevops.team": {
           "type": "string",
           "default": "",
-          "description": "Azure DevOps team name used for sprint/iteration queries. Defaults to '{project} Team' if not set."
+          "description": "Azure DevOps team name used for sprint/iteration queries. Defaults to '{project} Team' if not set. Use the team segment from your sprint URL, for example 'koekoek' in '.../_sprints/taskboard/koekoek/...'."
+        },
+        "azureDevops.taskState": {
+          "type": "string",
+          "default": "",
+          "description": "Optional state to set on newly created Task work items, for example 'Active'. Leave empty to use the process default state."
         }
       }
     }
