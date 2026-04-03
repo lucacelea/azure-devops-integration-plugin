@@ -29,6 +29,10 @@ jest.mock('../api', () => ({
             path: 'proj\\Sprint 5',
         },
     ]),
+    getTeamFieldValues: jest.fn().mockResolvedValue({
+        referenceName: 'System.AreaPath',
+        values: [{ value: 'proj\\Stackportal', includeChildren: true }],
+    }),
     getIterationWorkItems: jest.fn().mockResolvedValue([
         { id: 100, title: 'User story one', state: 'Active', type: 'User Story' },
         { id: 200, title: 'Bug two', state: 'Active', type: 'Bug' },
@@ -42,6 +46,7 @@ jest.mock('../api', () => ({
 
 const api = jest.requireMock('../api') as {
     getCurrentIterations: jest.Mock;
+    getTeamFieldValues: jest.Mock;
     getIterationWorkItems: jest.Mock;
     createWorkItem: jest.Mock;
     getCurrentUserAssignmentValue: jest.Mock;
@@ -154,6 +159,16 @@ describe('createTaskForPr', () => {
 
         expect(config.getDevOpsConfig).toHaveBeenCalledWith('/picked-repo');
         expect(config.getWorkItemProject).toHaveBeenCalledWith('/picked-repo');
+        expect(api.getIterationWorkItems).toHaveBeenCalledWith(
+            'org',
+            'proj',
+            'proj\\Sprint 5',
+            'token',
+            {
+                referenceName: 'System.AreaPath',
+                values: [{ value: 'proj\\Stackportal', includeChildren: true }],
+            },
+        );
         expect(api.createWorkItem).toHaveBeenCalledWith({
             org: 'org',
             project: 'proj',
@@ -218,6 +233,10 @@ describe('createTaskForPr', () => {
             'proj',
             'proj\\Sprint 6',
             'token',
+            {
+                referenceName: 'System.AreaPath',
+                values: [{ value: 'proj\\Stackportal', includeChildren: true }],
+            },
         );
         expect(api.createWorkItem).toHaveBeenCalledWith(expect.objectContaining({
             iterationPath: 'proj\\Sprint 6',

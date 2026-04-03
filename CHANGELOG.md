@@ -31,6 +31,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Sprint iteration queries escape quoted paths correctly**: task creation no longer breaks when the active iteration path contains apostrophes.
 - **Multiple current iterations no longer silently pick the first result**: when Azure DevOps returns more than one current sprint for the configured team, the extension now prompts you to choose the intended sprint explicitly.
 - **Task creation can now set an explicit initial state**: use the new `azureDevops.taskState` setting to create tasks directly in states such as `Active` when your process allows it.
+- **Sprint parent picker now respects the team's area paths**: backlog items are filtered by both the chosen sprint and the selected team's configured area paths, so unrelated areas in the same iteration are no longer shown.
 
 ### Removed
 

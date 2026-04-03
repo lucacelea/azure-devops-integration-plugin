@@ -102,6 +102,26 @@ function getStringProperty(record: Record<string, unknown>, key: string): string
     return typeof value === 'string' && value.trim() ? value : undefined;
 }
 
+function getIdentityBagString(record: Record<string, unknown> | undefined, key: string): string | undefined {
+    if (!record) {
+        return undefined;
+    }
+
+    const rawValue = record[key];
+    if (typeof rawValue === 'string' && rawValue.trim()) {
+        return rawValue;
+    }
+
+    if (rawValue && typeof rawValue === 'object') {
+        const propertyValue = (rawValue as Record<string, unknown>).$value;
+        if (typeof propertyValue === 'string' && propertyValue.trim()) {
+            return propertyValue;
+        }
+    }
+
+    return undefined;
+}
+
 export async function getUserId(org: string, token: string): Promise<string> {
     const url = `https://dev.azure.com/${encodeURIComponent(org)}/_apis/connectiondata`;
     const body = await httpsGet(url, authHeaders(token));
@@ -110,10 +130,41 @@ export async function getUserId(org: string, token: string): Promise<string> {
 }
 
 export async function getCurrentUserAssignmentValue(org: string, token: string): Promise<string | undefined> {
-    const url = `https://dev.azure.com/${encodeURIComponent(org)}/_apis/connectiondata`;
-    const body = await httpsGet(url, authHeaders(token));
-    const data = JSON.parse(body);
-    const user = (data.authenticatedUser ?? {}) as Record<string, unknown>;
+    const connectionDataUrl = `https://dev.azure.com/${encodeURIComponent(org)}/_apis/connectiondata`;
+    const connectionDataBody = await httpsGet(connectionDataUrl, authHeaders(token));
+    const connectionData = JSON.parse(connectionDataBody);
+    const user = (connectionData.authenticatedUser ?? {}) as Record<string, unknown>;
+
+    const identityId = getStringProperty(user, 'id');
+    if (identityId) {
+        const identityUrl =
+            `https://vssps.dev.azure.com/${encodeURIComponent(org)}` +
+            `/_apis/identities?identityIds=${encodeURIComponent(identityId)}&queryMembership=None&api-version=7.1`;
+        const identityBody = await httpsGet(identityUrl, authHeaders(token));
+        const identityData = JSON.parse(identityBody) as {
+            value?: Array<{
+                providerDisplayName?: string;
+                customDisplayName?: string;
+                properties?: Record<string, unknown>;
+            }>;
+        };
+        const identity = identityData.value?.[0];
+        if (identity) {
+            const candidates = [
+                getIdentityBagString(identity.properties, 'Account'),
+                getIdentityBagString(identity.properties, 'Mail'),
+                getIdentityBagString(identity.properties, 'Email'),
+                getIdentityBagString(identity.properties, 'SignInAddress'),
+                getStringProperty(identity, 'providerDisplayName'),
+                getStringProperty(identity, 'customDisplayName'),
+            ];
+            for (const candidate of candidates) {
+                if (candidate) {
+                    return candidate;
+                }
+            }
+        }
+    }
 
     const directCandidates = [
         getStringProperty(user, 'uniqueName'),
@@ -121,7 +172,6 @@ export async function getCurrentUserAssignmentValue(org: string, token: string):
         getStringProperty(user, 'mailAddress'),
         getStringProperty(user, 'providerDisplayName'),
         getStringProperty(user, 'customDisplayName'),
-        getStringProperty(user, 'displayName'),
     ];
     for (const candidate of directCandidates) {
         if (candidate) {
@@ -133,10 +183,10 @@ export async function getCurrentUserAssignmentValue(org: string, token: string):
     if (properties && typeof properties === 'object') {
         const propertyRecord = properties as Record<string, unknown>;
         const nestedCandidates = [
-            getStringProperty(propertyRecord, 'Account'),
-            getStringProperty(propertyRecord, 'Mail'),
-            getStringProperty(propertyRecord, 'Email'),
-            getStringProperty(propertyRecord, 'SignInAddress'),
+            getIdentityBagString(propertyRecord, 'Account'),
+            getIdentityBagString(propertyRecord, 'Mail'),
+            getIdentityBagString(propertyRecord, 'Email'),
+            getIdentityBagString(propertyRecord, 'SignInAddress'),
         ];
         for (const candidate of nestedCandidates) {
             if (candidate) {
@@ -923,6 +973,17 @@ export interface Iteration {
     path: string;
 }
 
+export interface TeamFieldValue {
+    value: string;
+    includeChildren?: boolean;
+}
+
+export interface TeamFieldValues {
+    referenceName: string;
+    defaultValue?: string;
+    values: TeamFieldValue[];
+}
+
 export async function getCurrentIterations(
     org: string, project: string, team: string, token: string
 ): Promise<Iteration[]> {
@@ -939,17 +1000,82 @@ export async function getCurrentIterations(
     }));
 }
 
+export async function getTeamFieldValues(
+    org: string, project: string, team: string, token: string
+): Promise<TeamFieldValues | undefined> {
+    const url =
+        `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/${encodeURIComponent(team)}` +
+        `/_apis/work/teamsettings/teamfieldvalues?api-version=7.1`;
+    const body = await httpsGet(url, authHeaders(token));
+    const data = JSON.parse(body) as {
+        field?: { referenceName?: string };
+        defaultValue?: string;
+        values?: Array<{ value?: string; includeChildren?: boolean }>;
+    };
+
+    const referenceName = data.field?.referenceName;
+    if (!referenceName) {
+        return undefined;
+    }
+
+    const values = (data.values ?? [])
+        .filter((value): value is { value: string; includeChildren?: boolean } => typeof value.value === 'string' && value.value.length > 0)
+        .map((value) => ({
+            value: value.value,
+            includeChildren: value.includeChildren,
+        }));
+
+    return {
+        referenceName,
+        defaultValue: data.defaultValue,
+        values,
+    };
+}
+
+function escapeWiqlString(value: string): string {
+    return value.replace(/'/g, "''");
+}
+
+function buildTeamFieldClause(teamFieldValues?: TeamFieldValues): string {
+    if (!teamFieldValues) {
+        return '';
+    }
+
+    const fieldName = `[${teamFieldValues.referenceName}]`;
+    const values = teamFieldValues.values.length > 0
+        ? teamFieldValues.values
+        : teamFieldValues.defaultValue
+            ? [{ value: teamFieldValues.defaultValue, includeChildren: true }]
+            : [];
+
+    if (values.length === 0) {
+        return '';
+    }
+
+    const clauses = values.map((entry) => {
+        const escapedValue = escapeWiqlString(entry.value);
+        if (teamFieldValues.referenceName === 'System.AreaPath' && entry.includeChildren) {
+            return `${fieldName} UNDER '${escapedValue}'`;
+        }
+        return `${fieldName} = '${escapedValue}'`;
+    });
+
+    return ` AND (${clauses.join(' OR ')})`;
+}
+
 export async function getIterationWorkItems(
-    org: string, project: string, iterationPath: string, token: string
+    org: string, project: string, iterationPath: string, token: string, teamFieldValues?: TeamFieldValues
 ): Promise<WorkItem[]> {
     const wiqlUrl =
         `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}` +
         `/_apis/wit/wiql?api-version=7.1`;
-    const sanitizedPath = iterationPath.replace(/'/g, "''");
+    const sanitizedPath = escapeWiqlString(iterationPath);
+    const teamFieldClause = buildTeamFieldClause(teamFieldValues);
     const wiqlBody = {
         query:
             "SELECT [System.Id] FROM WorkItems" +
             ` WHERE [System.IterationPath] = '${sanitizedPath}'` +
+            teamFieldClause +
             " AND [System.WorkItemType] IN ('User Story', 'Bug', 'Enabler')" +
             " AND [System.State] NOT IN ('Done', 'Closed', 'Removed')" +
             " ORDER BY [System.WorkItemType] ASC, [System.Title] ASC",

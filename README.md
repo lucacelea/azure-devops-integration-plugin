@@ -57,13 +57,14 @@ Use **Azure DevOps: Create Task for PR** to create a Task in the active sprint w
 - In multi-root workspaces, the command first asks which repository to use
 - The extension looks up the current iteration for your configured team
 - If Azure DevOps reports multiple current iterations, you choose the sprint explicitly instead of relying on server order
-- It lets you choose a parent backlog item from that sprint
+- It lets you choose a parent backlog item from that sprint, filtered to the team's configured area paths
 - The new task is assigned to your current Azure DevOps identity
 - You can optionally force the initial task state with `azureDevops.taskState` such as `Active`
 - The task title is pre-filled from the current branch name after removing your configured personal branch prefix and common branch-type prefixes like `feature/` or `task/`
 - If the current branch already has an open pull request, the new task is linked to that PR automatically
 
 If your Azure DevOps sprint URL looks like `/.../_sprints/taskboard/stackportal/...`, set `azureDevops.team` to `stackportal`.
+The parent picker will then use that team's area-path configuration, so items from sibling areas such as `stackinsights` are excluded unless the team itself is configured to include them.
 
 ### Commands
 

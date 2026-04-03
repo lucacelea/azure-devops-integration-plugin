@@ -4,6 +4,7 @@ import { getToken } from '../auth';
 import { pickRepository } from '../repoPicker';
 import {
     getCurrentIterations,
+    getTeamFieldValues,
     getIterationWorkItems,
     createWorkItem,
     findPullRequestForBranch,
@@ -95,12 +96,15 @@ export async function createTaskForPr(
         const team = azureDevopsConfig.get<string>('team', '') || `${project} Team`;
         const taskState = azureDevopsConfig.get<string>('taskState', '').trim();
 
-        const iterations = await vscode.window.withProgress(
+        const [iterations, teamFieldValues] = await vscode.window.withProgress(
             {
                 location: vscode.ProgressLocation.Notification,
                 title: 'Fetching current sprint...',
             },
-            () => getCurrentIterations(config.organization, project, team, token),
+            () => Promise.all([
+                getCurrentIterations(config.organization, project, team, token),
+                getTeamFieldValues(config.organization, project, team, token),
+            ]),
         );
 
         if (iterations.length === 0) {
@@ -121,7 +125,7 @@ export async function createTaskForPr(
                 location: vscode.ProgressLocation.Notification,
                 title: 'Fetching sprint work items...',
             },
-            () => getIterationWorkItems(config.organization, project, iteration.path, token),
+            () => getIterationWorkItems(config.organization, project, iteration.path, token, teamFieldValues),
         );
 
         if (workItems.length === 0) {
