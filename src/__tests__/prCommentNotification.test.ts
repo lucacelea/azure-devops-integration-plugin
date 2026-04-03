@@ -31,6 +31,7 @@ function makePr(
         commentThreads,
         checksStatus: 'none',
         checks: [],
+        workItems: [],
     };
 }
 

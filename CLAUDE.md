@@ -29,8 +29,7 @@ On activation (`onStartupFinished`) it registers:
 
 - command palette commands
 - PR tree view in the `azureDevops` Activity Bar container
-- PR changes tree view
-- PR discussion tree view
+- PR changes tree view for both file changes and discussion
 - virtual document provider for PR file contents: `azuredevops-pr`
 - virtual document provider for discussion thread markdown: `azuredevops-pr-comment`
 - comment controller for inline PR comments in diff editors
@@ -64,7 +63,6 @@ There are five main layers:
    - PR changes: [src/prChangesProvider.ts](/Users/luca/Documents/vscode-extensions/azure-devops-integration/src/prChangesProvider.ts)
    - PR diff content: [src/prContentProvider.ts](/Users/luca/Documents/vscode-extensions/azure-devops-integration/src/prContentProvider.ts)
    - inline comments: [src/prComments.ts](/Users/luca/Documents/vscode-extensions/azure-devops-integration/src/prComments.ts)
-   - discussion tree: [src/prDiscussionProvider.ts](/Users/luca/Documents/vscode-extensions/azure-devops-integration/src/prDiscussionProvider.ts)
    - discussion document provider: [src/prCommentDocProvider.ts](/Users/luca/Documents/vscode-extensions/azure-devops-integration/src/prCommentDocProvider.ts)
    - commands: [src/commands](/Users/luca/Documents/vscode-extensions/azure-devops-integration/src/commands)
 
@@ -124,7 +122,7 @@ Work item parsing is in [src/workItem.ts](/Users/luca/Documents/vscode-extension
 
 Default branch patterns:
 
-- `AB#1234`
+- `#1234`
 - `feature/1234-...`
 - `bugfix/1234-...`
 - `hotfix/1234-...`
@@ -187,6 +185,7 @@ What it does:
 - groups PRs into `Created by me`, `Assigned to me`, `Assigned to my teams`
 - applies client-side filtering and sorting
 - groups child items by repository if a category spans multiple repos
+- shows PR child nodes for branch, checks, and linked work items
 - computes notifications for newly increased unresolved-comment counts
 - auto-refreshes via `registerPrSidebar()`
 
@@ -194,7 +193,7 @@ Important behavior:
 
 - refresh interval setting: `azureDevops.pullRequestRefreshInterval`
 - enforced minimum: 30 seconds
-- notifications setting: `azureDevops.enableNotifications`
+- notifications setting: `azureDevops.notificationScope`
 - filter options are implemented client-side
 - sort options are implemented client-side
 
@@ -212,8 +211,11 @@ What it does:
 - fetches PR iterations
 - uses the latest iteration only
 - fetches changes for that iteration
-- turns changed files into `PrFileItem` tree items
+- fetches PR threads and groups them into file-backed and general comments
+- turns changed files into `PrFileItem` tree items and nests file discussion threads under them
+- adds a `General Comments` root node when the PR has non-file threads
 - delegates diff opening to the `azureDevops.openPrFileDiff` command
+- exposes thread-opening, reply, refresh, clear, and add-comment actions used by commands in `extension.ts`
 
 Important implication:
 
@@ -265,26 +267,7 @@ Important constraints:
 - new comment ranges are only offered on the right side of a diff
 - comment placement depends on matching open virtual docs by parsed PR URI
 - only file-backed threads become inline comment threads
-- general PR comments are handled in the discussion tree instead
-
-### PR Discussion View
-
-Implementation: [src/prDiscussionProvider.ts](/Users/luca/Documents/vscode-extensions/azure-devops-integration/src/prDiscussionProvider.ts)
-
-Owner class: `PrDiscussionProvider`
-
-What it does:
-
-- stores the selected PR
-- fetches PR threads and iterations
-- uses latest iteration commit IDs for diff navigation
-- shows general comments and file comments in one tree
-- exposes commands to open a thread, reply, refresh, clear, and add a general PR comment
-
-Behavior split:
-
-- file comments open a diff and reveal the relevant line
-- general comments open a read-only virtual markdown document
+- general PR comments are handled in the unified `PR Changes` tree instead
 
 ### Discussion Markdown Provider
 
@@ -295,7 +278,7 @@ This is a small in-memory content provider.
 - scheme: `azuredevops-pr-comment`
 - thread content is stored in a module-level `Map<number, string>`
 - content is populated before the virtual document is opened
-- clearing discussion also clears this content store
+- clearing PR changes also clears this content store
 
 ### Status Bar
 
@@ -389,7 +372,7 @@ PR creation behavior:
 Sidebar / notification behavior:
 
 - `azureDevops.pullRequestRefreshInterval`
-- `azureDevops.enableNotifications`
+- `azureDevops.notificationScope`
 
 If you add a setting:
 
@@ -459,7 +442,7 @@ If the request is about...
   - [src/api.ts](/Users/luca/Documents/vscode-extensions/azure-devops-integration/src/api.ts)
 
 - discussion tree, thread opening, general comments:
-  - [src/prDiscussionProvider.ts](/Users/luca/Documents/vscode-extensions/azure-devops-integration/src/prDiscussionProvider.ts)
+  - [src/prChangesProvider.ts](/Users/luca/Documents/vscode-extensions/azure-devops-integration/src/prChangesProvider.ts)
   - [src/prCommentDocProvider.ts](/Users/luca/Documents/vscode-extensions/azure-devops-integration/src/prCommentDocProvider.ts)
 
 - work item detection or status bar:
@@ -484,7 +467,7 @@ Test files live in [src/__tests__](/Users/luca/Documents/vscode-extensions/azure
 Current test coverage focuses on logic-heavy pieces such as:
 
 - tree item rendering
-- discussion providers
+- PR changes and discussion tree behavior
 - content providers
 - helper functions used by PR creation
 - comment notification behavior

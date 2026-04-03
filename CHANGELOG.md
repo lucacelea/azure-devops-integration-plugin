@@ -8,10 +8,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- **PR age in sidebar**: each pull request now shows its relative age in the tree item description (e.g. `feature · 2d ago`) and in the tooltip.
-- **File comment badges**: the PR Changes view now shows unresolved comment counts per file (e.g. `💬 3`) so you can spot files that need attention at a glance.
+- **Linked work items in the PR sidebar**: pull requests now show a `Work Items` child node listing linked items with their type and state, and clicking an item opens it in Azure DevOps.
+- **Unified discussion tree in `PR Changes`**: file-level threads now appear directly under the changed file they belong to, and general PR comments are grouped under a `General Comments` node in the same view.
 - **Vote from diff editor**: approve, reject, and wait-for-author buttons now appear in the editor title bar when viewing a PR diff, so you can vote without switching back to the sidebar.
 - **Multi-root workspace support for PR creation**: when multiple workspace folders are open, a repository picker now appears (similar to VS Code's native "Create Branch" command) showing each repo name and current branch. If only one folder has an Azure DevOps remote, the picker is skipped automatically.
+
+### Changed
+
+- **PR sidebar summaries are more compact**: each pull request now shows relative age in the row description, while branch name, policy checks, and linked work items move into expandable child nodes.
+- **Comment navigation now targets the unified `PR Changes` view**: notification actions and comment-opening commands reuse the same review tree instead of switching between separate changes and discussion panels.
+
+### Removed
+
+- **Separate `PR Discussion` view**: discussion threads are now part of `PR Changes`, so the dedicated discussion tree and its refresh/clear actions were removed.
 
 ## [0.7.0] - 2026-03-27
 

@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { getCurrentBranch } from './git';
 
 const DEFAULT_PATTERNS: RegExp[] = [
-    /AB#(\d+)/,
+    /#(\d+)/,
     /^(?:feature|bugfix|hotfix|fix|task|chore)\/(\d+)/,
     /^(\d+)/,
 ];
@@ -39,4 +39,8 @@ export async function getWorkItemId(cwd?: string): Promise<string | undefined> {
     }
 
     return undefined;
+}
+
+export function buildWorkItemUrl(org: string, project: string, workItemId: number | string): string {
+    return `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_workitems/edit/${encodeURIComponent(String(workItemId))}`;
 }
