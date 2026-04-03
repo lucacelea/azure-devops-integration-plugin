@@ -21,6 +21,7 @@ function makePr(id: number, title: string, commentThreads: PrThreadSummary[]): E
         commentThreads,
         checksStatus: 'none',
         checks: [],
+        workItems: [],
     };
 }
 

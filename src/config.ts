@@ -7,7 +7,7 @@ export interface DevOpsConfig {
     repository: string;
 }
 
-interface ParsedRemote {
+export interface ParsedRemote {
     organization?: string;
     project?: string;
     repository?: string;
@@ -21,7 +21,7 @@ function decodeUrlComponent(value: string): string {
     }
 }
 
-function parseRemoteUrl(url: string): ParsedRemote {
+export function parseRemoteUrl(url: string): ParsedRemote {
     // HTTPS: https://dev.azure.com/{org}/{project}/_git/{repo}
     // Also handles: https://{user}@dev.azure.com/{org}/{project}/_git/{repo}
     const httpsMatch = url.match(/https?:\/\/(?:[^@]+@)?dev\.azure\.com\/([^/]+)\/([^/]+)\/_git\/([^/\s]+)/);
@@ -56,12 +56,12 @@ function parseRemoteUrl(url: string): ParsedRemote {
     return {};
 }
 
-export async function getOrganization(): Promise<string> {
+export async function getOrganization(cwd?: string): Promise<string> {
     const settings = vscode.workspace.getConfiguration('azureDevops');
     let organization = settings.get<string>('organization') || '';
 
     if (!organization) {
-        const remoteUrl = await getRemoteUrl();
+        const remoteUrl = await getRemoteUrl(cwd);
         if (remoteUrl) {
             const parsed = parseRemoteUrl(remoteUrl);
             if (parsed.organization) {
@@ -81,7 +81,7 @@ export async function getOrganization(): Promise<string> {
     return organization;
 }
 
-export async function getDevOpsConfig(): Promise<DevOpsConfig> {
+export async function getDevOpsConfig(cwd?: string): Promise<DevOpsConfig> {
     const settings = vscode.workspace.getConfiguration('azureDevops');
     let organization = settings.get<string>('organization') || '';
     let project = settings.get<string>('project') || '';
@@ -89,7 +89,7 @@ export async function getDevOpsConfig(): Promise<DevOpsConfig> {
 
     // If any value is missing, try to auto-detect from git remote
     if (!organization || !project || !repository) {
-        const remoteUrl = await getRemoteUrl();
+        const remoteUrl = await getRemoteUrl(cwd);
         if (remoteUrl) {
             const parsed = parseRemoteUrl(remoteUrl);
             if (!organization && parsed.organization) {
@@ -119,7 +119,7 @@ export async function getDevOpsConfig(): Promise<DevOpsConfig> {
     return { organization, project, repository };
 }
 
-export async function getWorkItemProject(): Promise<string> {
+export async function getWorkItemProject(cwd?: string): Promise<string> {
     const settings = vscode.workspace.getConfiguration('azureDevops');
     const workItemProject = settings.get<string>('workItemProject') || '';
     if (workItemProject) {
@@ -132,7 +132,7 @@ export async function getWorkItemProject(): Promise<string> {
         return project;
     }
 
-    const remoteUrl = await getRemoteUrl();
+    const remoteUrl = await getRemoteUrl(cwd);
     if (remoteUrl) {
         const parsed = parseRemoteUrl(remoteUrl);
         if (parsed.project) {

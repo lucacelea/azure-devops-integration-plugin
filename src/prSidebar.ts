@@ -1,7 +1,17 @@
 import * as vscode from 'vscode';
 import { getOrganization } from './config';
 import { getToken } from './auth';
-import { getMyPullRequests, getUserId, EnrichedPullRequest, MyPullRequests, PolicyCheck, PrThreadSummary } from './api';
+import { getMyPullRequests, getUserId, EnrichedPullRequest, MyPullRequests, PolicyCheck, PrThreadSummary, WorkItem } from './api';
+import { buildWorkItemUrl } from './workItem';
+
+const WORK_ITEM_TYPE_ICONS: Record<string, string> = {
+    'Bug': 'bug',
+    'Task': 'tasklist',
+    'User Story': 'bookmark',
+    'Feature': 'rocket',
+    'Epic': 'star-full',
+    'Issue': 'issues',
+};
 
 export interface CommentNotificationEvent {
     org: string;
@@ -12,6 +22,31 @@ export interface CommentNotificationEvent {
 interface CommentNotificationHandlers {
     openComment: (event: CommentNotificationEvent) => Promise<void>;
     openInDevOps: (event: CommentNotificationEvent) => Promise<void>;
+}
+
+export function formatRelativeTime(dateStr: string): string {
+    const now = Date.now();
+    const then = new Date(dateStr).getTime();
+    const diffMs = now - then;
+    if (diffMs < 0) { return 'just now'; }
+
+    const seconds = Math.floor(diffMs / 1000);
+    if (seconds < 60) { return 'just now'; }
+
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) { return `${minutes}m ago`; }
+
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) { return `${hours}h ago`; }
+
+    const days = Math.floor(hours / 24);
+    if (days < 30) { return `${days}d ago`; }
+
+    const months = Math.floor(days / 30);
+    if (months < 12) { return `${months}mo ago`; }
+
+    const years = Math.floor(months / 12);
+    return `${years}y ago`;
 }
 
 export class PullRequestItem extends vscode.TreeItem {
@@ -101,57 +136,29 @@ export class PullRequestItem extends vscode.TreeItem {
         // --- Label ---
         const label = pr.isDraft ? `[Draft] ${pr.title}` : pr.title;
 
-        // --- Description: just the branch name ---
-        const description = branch;
+        // --- Description: age only ---
+        const age = pr.creationDate ? formatRelativeTime(pr.creationDate) : '';
 
-        // --- Tooltip: plain markdown (no codicons — they don't render reliably in tree tooltips) ---
-        const commentsText = pr.unresolvedCommentCount > 0
-            ? `\u25A0 Unresolved comments: **${pr.unresolvedCommentCount}**`
-            : '\u2714 No unresolved comments';
-
-        const reviewerLines = reviewers.map((r) => {
-            const symbol =
-                r.vote >= 5    ? '\u2714' :
-                r.vote === -5  ? '\u25CB' :
-                r.vote === -10 ? '\u2718' :
-                '\u2013';
-            const rLabel =
-                r.vote === 10  ? 'approved' :
-                r.vote === 5   ? 'approved with suggestions' :
-                r.vote === -5  ? 'waiting for author' :
-                r.vote === -10 ? 'rejected' :
-                'no vote';
-            return `- ${symbol} ${r.displayName} \u2014 ${rLabel}`;
-        });
-
-        const draftLine = pr.isDraft ? '**Draft**\n\n' : '';
-
-        const tooltip = new vscode.MarkdownString(
-            `**${pr.title}** #${pr.pullRequestId}\n\n` +
-            draftLine +
-            `Author: ${pr.createdBy.displayName}  \n` +
-            `Branch: ${branch}\n\n` +
-            `---\n\n` +
-            `${commentsText}\n\n` +
-            `---\n\n` +
-            (reviewerLines.length > 0
-                ? `**Reviewers:**\n\n${reviewerLines.join('\n')}`
-                : 'No reviewers assigned')
-        );
-
-        // --- Build check children ---
+        // --- Build child nodes ---
         const checks = pr.checks ?? [];
-        const checkChildren = checks.map((check) => PullRequestItem.fromCheck(check));
+        const workItems = pr.workItems ?? [];
+        const children: PullRequestItem[] = [];
+
+        children.push(PullRequestItem.fromBranch(branch));
+        if (checks.length > 0) {
+            children.push(PullRequestItem.checksSummary(checks));
+        }
+        if (workItems.length > 0) {
+            children.push(PullRequestItem.workItemsSummary(workItems, org, pr));
+        }
 
         // --- Assemble item ---
-        const hasChildren = checkChildren.length > 0;
         const item = new PullRequestItem(
             label,
-            hasChildren ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
-            hasChildren ? checkChildren : undefined
+            vscode.TreeItemCollapsibleState.Collapsed,
+            children
         );
-        item.description = description;
-        item.tooltip = tooltip;
+        item.description = age;
         item.iconPath = new vscode.ThemeIcon(iconId, iconColor);
         item.contextValue = 'pullRequest';
         item.command = {
@@ -163,6 +170,13 @@ export class PullRequestItem extends vscode.TreeItem {
         item.pr = pr;
         item.org = org;
 
+        return item;
+    }
+
+    static fromBranch(branch: string): PullRequestItem {
+        const item = new PullRequestItem(branch, vscode.TreeItemCollapsibleState.None);
+        item.iconPath = new vscode.ThemeIcon('git-branch');
+        item.contextValue = 'branchInfo';
         return item;
     }
 
@@ -208,6 +222,79 @@ export class PullRequestItem extends vscode.TreeItem {
         item.description = statusLabel;
         item.iconPath = new vscode.ThemeIcon(iconId, iconColor);
         item.contextValue = 'policyCheck';
+
+        return item;
+    }
+
+    static checksSummary(checks: PolicyCheck[]): PullRequestItem {
+        const passed = checks.filter((c) => c.status === 'approved').length;
+        const failed = checks.filter((c) => c.status === 'rejected' || c.status === 'broken').length;
+        const running = checks.filter((c) => c.status === 'running' || c.status === 'queued').length;
+
+        let iconId: string;
+        let iconColor: vscode.ThemeColor | undefined;
+        let summary: string;
+
+        if (failed > 0) {
+            iconId = 'error';
+            iconColor = new vscode.ThemeColor('testing.iconFailed');
+            summary = `${failed} failed`;
+        } else if (running > 0) {
+            iconId = 'loading~spin';
+            iconColor = new vscode.ThemeColor('warningForeground');
+            summary = `${running} running`;
+        } else {
+            iconId = 'pass';
+            iconColor = new vscode.ThemeColor('testing.iconPassed');
+            summary = 'all passed';
+        }
+
+        const children = checks.map((check) => PullRequestItem.fromCheck(check));
+        const item = new PullRequestItem(
+            `Checks (${passed}/${checks.length})`,
+            vscode.TreeItemCollapsibleState.Collapsed,
+            children
+        );
+        item.description = summary;
+        item.iconPath = new vscode.ThemeIcon(iconId, iconColor);
+        item.contextValue = 'checksSummary';
+
+        return item;
+    }
+
+    static workItemsSummary(workItems: WorkItem[], org: string, pr: EnrichedPullRequest): PullRequestItem {
+        const children = workItems.map((wi) => PullRequestItem.fromWorkItem(wi, org, pr));
+        const item = new PullRequestItem(
+            `Work Items (${workItems.length})`,
+            vscode.TreeItemCollapsibleState.Collapsed,
+            children
+        );
+        item.description = workItems.map((wi) => `#${wi.id}`).join(', ');
+        item.iconPath = new vscode.ThemeIcon('bookmark');
+        item.contextValue = 'workItemsSummary';
+
+        return item;
+    }
+
+    static fromWorkItem(wi: WorkItem, org: string, pr: EnrichedPullRequest): PullRequestItem {
+        const iconId = WORK_ITEM_TYPE_ICONS[wi.type] ?? 'symbol-field';
+
+        const item = new PullRequestItem(
+            wi.title,
+            vscode.TreeItemCollapsibleState.None
+        );
+        item.description = `${wi.type} \u00B7 ${wi.state}`;
+        item.iconPath = new vscode.ThemeIcon(iconId);
+        item.contextValue = 'workItem';
+        item.command = {
+            command: 'vscode.open',
+            title: 'Open Work Item',
+            arguments: [
+                vscode.Uri.parse(
+                    buildWorkItemUrl(org, pr.repository?.project?.name ?? '', wi.id)
+                ),
+            ],
+        };
 
         return item;
     }

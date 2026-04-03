@@ -1,6 +1,6 @@
 # Azure DevOps Integration for VS Code
 
-A VS Code extension for Azure DevOps. Browse pull requests in a sidebar grouped by "Created by me," "Assigned to me," and "My teams," with review, check, and comment status. Auto-detects config from git remotes and extracts work item IDs from branch names. Create PRs, edit PR descriptions, open repos, and link work items — all without leaving the editor.
+A VS Code extension for Azure DevOps. Browse pull requests in a sidebar grouped by "Created by me," "Assigned to me," and "My teams," review changes and discussion in a unified tree, inspect linked work items, create PRs, and edit PR titles and descriptions without leaving the editor.
 
 ## Features
 
@@ -14,14 +14,17 @@ View your assigned pull requests directly in the Activity Bar. PRs are grouped i
 
 Each PR displays rich status information:
 
-- Draft indicator
-- Source branch
-- Author and reviewer names
-- Review status (Approved / Waiting / Rejected)
-- Check status (Passed / Failed / Running)
-- Unresolved comment count
+- Draft and review/check status via the PR icon
+- Relative age (e.g. `2d ago`)
+- Source branch as an expandable child item
+- Check summary with per-check child items when policies exist
+- Linked work items as expandable child items, including type and state
 
-Click any PR to open its changes in VS Code. Use the context menu to open the PR in Azure DevOps, add comments, or edit the PR description when needed.
+Click any PR to open its `PR Changes` view in VS Code. Changed files can expand to show file-level discussion threads, and general PR comments are grouped under a `General Comments` node. From the thread context menu you can reply, resolve, reactivate, or mark a thread as `Won't Fix` or `By Design`. Use the PR context menu to open the PR in Azure DevOps, add comments, or edit the PR description when needed.
+
+When viewing a PR diff, approve, reject, and wait-for-author buttons appear in the editor title bar for quick voting without leaving the diff.
+
+The PR context menu also includes **Edit Title**, which opens an input box pre-filled with the current pull request title and updates the PR immediately after confirmation.
 
 ### Comment Notifications And Discussion
 
@@ -37,12 +40,12 @@ The extension can notify you when new PR discussion activity is detected during 
 
 The extension automatically extracts work item IDs from your branch name using common patterns:
 
-- `AB#1234`
+- `#1234`
 - `feature/1234-description`
 - `1234-description`
 - `bugfix/1234-description`
 
-The detected work item is shown in the **status bar** (e.g., `WI #1234`) and clicking it opens the work item in Azure DevOps.
+The detected work item is shown in the **status bar** (e.g., `WI #1234`) and clicking it opens the work item in Azure DevOps. Pull requests in the sidebar also show any linked work items, and selecting one opens that work item in the browser.
 
 ### Commands
 
@@ -50,13 +53,15 @@ Open the Command Palette (`Cmd+Shift+P`) and type "Azure DevOps" to access:
 
 | Command | Description |
 |---------|-------------|
-| **Azure DevOps: Create Pull Request** | Creates a PR from the current branch. Checks that the branch is pushed to origin first, offering to push if not. Automatically links detected work items, strips the configured personal branch prefix from the suggested title, appends selected work item titles to the description, and applies a repository PR template when available. |
+| **Azure DevOps: Create Pull Request** | Creates a PR from the current branch. In multi-root workspaces, prompts you to choose which repository to use. Checks that the branch is pushed to origin first, offering to push if not. Automatically links detected work items, strips the configured personal branch prefix from the suggested title, appends selected work item titles to the description, and applies a repository PR template when available. |
 | **Azure DevOps: Open Repository** | Opens the repository in Azure DevOps. |
 | **Azure DevOps: Open Work Item** | Opens a work item by ID. Pre-fills the detected ID from the current branch. |
 | **Azure DevOps: Edit Pull Request Description** | Lets you pick one of your authored pull requests, opens its current description in a temporary markdown editor, and updates the PR when you close the tab. |
 | **Azure DevOps: Set Personal Access Token** | Configure your PAT for API access. |
 | **Azure DevOps: Remove Personal Access Token** | Remove your stored PAT. |
 | **Azure DevOps: Refresh Pull Requests** | Manually refresh the PR sidebar. |
+
+The PR sidebar context menu also includes **Edit Title**, which opens an input box pre-filled with the current pull request title and updates the PR immediately after confirmation.
 
 ## Getting Started
 
