@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Edit existing PR titles**: pull requests in the sidebar now include an `Edit Title` action that opens an input box with the current title, updates the pull request in Azure DevOps, and refreshes the list after a successful change.
+
 ## [0.7.0] - 2026-03-27
 
 ### Added
