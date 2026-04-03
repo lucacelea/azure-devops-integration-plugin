@@ -6,6 +6,7 @@ export interface PullRequest {
     title: string;
     description?: string;
     sourceRefName: string;
+    creationDate?: string;
     createdBy: { displayName: string; id: string };
     reviewers: Array<{ displayName: string; vote: number; id: string }>;
     repository: { id: string; name: string; project: { id: string; name: string } };
@@ -19,6 +20,7 @@ export interface PolicyCheck {
     name: string;
     status: 'approved' | 'rejected' | 'running' | 'queued' | 'broken' | 'notApplicable';
     isBlocking: boolean;
+    pipelineUrl?: string;
 }
 
 export interface EnrichedPullRequest extends PullRequest {
@@ -26,6 +28,7 @@ export interface EnrichedPullRequest extends PullRequest {
     checksStatus: 'passed' | 'failed' | 'running' | 'none';
     checks: PolicyCheck[];
     commentThreads: PrThreadSummary[];
+    workItems: WorkItem[];
 }
 
 export interface PrChange {
@@ -98,11 +101,105 @@ export function authHeaders(token: string): Record<string, string> {
     };
 }
 
+function getStringProperty(record: Record<string, unknown>, key: string): string | undefined {
+    const value = record[key];
+    return typeof value === 'string' && value.trim() ? value : undefined;
+}
+
+function getIdentityBagString(record: Record<string, unknown> | undefined, key: string): string | undefined {
+    if (!record) {
+        return undefined;
+    }
+
+    const rawValue = record[key];
+    if (typeof rawValue === 'string' && rawValue.trim()) {
+        return rawValue;
+    }
+
+    if (rawValue && typeof rawValue === 'object') {
+        const propertyValue = (rawValue as Record<string, unknown>).$value;
+        if (typeof propertyValue === 'string' && propertyValue.trim()) {
+            return propertyValue;
+        }
+    }
+
+    return undefined;
+}
+
 export async function getUserId(org: string, token: string): Promise<string> {
     const url = `https://dev.azure.com/${encodeURIComponent(org)}/_apis/connectiondata`;
     const body = await httpsGet(url, authHeaders(token));
     const data = JSON.parse(body);
     return data.authenticatedUser.id;
+}
+
+export async function getCurrentUserAssignmentValue(org: string, token: string): Promise<string | undefined> {
+    const connectionDataUrl = `https://dev.azure.com/${encodeURIComponent(org)}/_apis/connectiondata`;
+    const connectionDataBody = await httpsGet(connectionDataUrl, authHeaders(token));
+    const connectionData = JSON.parse(connectionDataBody);
+    const user = (connectionData.authenticatedUser ?? {}) as Record<string, unknown>;
+
+    const identityId = getStringProperty(user, 'id');
+    if (identityId) {
+        const identityUrl =
+            `https://vssps.dev.azure.com/${encodeURIComponent(org)}` +
+            `/_apis/identities?identityIds=${encodeURIComponent(identityId)}&queryMembership=None&api-version=7.1`;
+        const identityBody = await httpsGet(identityUrl, authHeaders(token));
+        const identityData = JSON.parse(identityBody) as {
+            value?: Array<{
+                providerDisplayName?: string;
+                customDisplayName?: string;
+                properties?: Record<string, unknown>;
+            }>;
+        };
+        const identity = identityData.value?.[0];
+        if (identity) {
+            const candidates = [
+                getIdentityBagString(identity.properties, 'Account'),
+                getIdentityBagString(identity.properties, 'Mail'),
+                getIdentityBagString(identity.properties, 'Email'),
+                getIdentityBagString(identity.properties, 'SignInAddress'),
+                getStringProperty(identity, 'providerDisplayName'),
+                getStringProperty(identity, 'customDisplayName'),
+            ];
+            for (const candidate of candidates) {
+                if (candidate) {
+                    return candidate;
+                }
+            }
+        }
+    }
+
+    const directCandidates = [
+        getStringProperty(user, 'uniqueName'),
+        getStringProperty(user, 'preferredEmail'),
+        getStringProperty(user, 'mailAddress'),
+        getStringProperty(user, 'providerDisplayName'),
+        getStringProperty(user, 'customDisplayName'),
+    ];
+    for (const candidate of directCandidates) {
+        if (candidate) {
+            return candidate;
+        }
+    }
+
+    const properties = user.properties;
+    if (properties && typeof properties === 'object') {
+        const propertyRecord = properties as Record<string, unknown>;
+        const nestedCandidates = [
+            getIdentityBagString(propertyRecord, 'Account'),
+            getIdentityBagString(propertyRecord, 'Mail'),
+            getIdentityBagString(propertyRecord, 'Email'),
+            getIdentityBagString(propertyRecord, 'SignInAddress'),
+        ];
+        for (const candidate of nestedCandidates) {
+            if (candidate) {
+                return candidate;
+            }
+        }
+    }
+
+    return undefined;
 }
 
 async function fetchPullRequests(
@@ -430,10 +527,18 @@ async function getChecks(
                 }
             }
 
+            let pipelineUrl: string | undefined;
+            if (e.context?.buildId) {
+                pipelineUrl =
+                    `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}` +
+                    `/_build/results?buildId=${encodeURIComponent(String(e.context.buildId))}`;
+            }
+
             return {
                 name,
                 status,
                 isBlocking: e.configuration.isBlocking,
+                pipelineUrl,
             };
         });
 
@@ -456,13 +561,18 @@ async function enrichPullRequests(
             const projectId = pr.repository?.project?.id ?? '';
             const repoId = pr.repository?.id ?? '';
 
-            const [commentSummary, checksResult] = await Promise.all([
+            const [commentSummary, checksResult, workItems] = await Promise.all([
                 project && repoId
                     ? getCommentThreadSummary(org, project, repoId, pr.pullRequestId, token)
                     : Promise.resolve({ unresolvedCommentCount: 0, commentThreads: [] as PrThreadSummary[] }),
                 project && projectId
                     ? getChecks(org, project, projectId, pr.pullRequestId, token, pr.reviewers ?? [])
                     : Promise.resolve({ checksStatus: 'none' as const, checks: [] as PolicyCheck[] }),
+                project && repoId
+                    ? getPrWorkItems(org, project, repoId, pr.pullRequestId, token)
+                        .then((ids) => fetchWorkItemsByIds(org, ids, token))
+                        .catch(() => [] as WorkItem[])
+                    : Promise.resolve([] as WorkItem[]),
             ]);
 
             const checks = [...checksResult.checks];
@@ -487,6 +597,7 @@ async function enrichPullRequests(
                 commentThreads: commentSummary.commentThreads,
                 checksStatus,
                 checks,
+                workItems,
             };
         })
     );
@@ -631,6 +742,16 @@ export async function getPrThreads(
     return data.value as PrThread[];
 }
 
+export type ThreadStatus = 'active' | 'fixed' | 'wontFix' | 'closed' | 'byDesign' | 'pending' | 'unknown';
+
+export async function updateThreadStatus(
+    org: string, project: string, repoId: string, prId: number,
+    threadId: number, status: ThreadStatus, token: string
+): Promise<void> {
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/pullRequests/${prId}/threads/${threadId}?api-version=7.1`;
+    await httpsRequest(url, 'PATCH', authHeaders(token), { status });
+}
+
 export async function replyToThread(
     org: string, project: string, repoId: string, prId: number,
     threadId: number, content: string, token: string
@@ -698,6 +819,14 @@ export async function updatePullRequestDescription(
 ): Promise<void> {
     const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/pullRequests/${prId}?api-version=7.1`;
     await httpsRequest(url, 'PATCH', authHeaders(token), { description });
+}
+
+export async function updatePullRequestTitle(
+    org: string, project: string, repoId: string, prId: number,
+    title: string, token: string
+): Promise<void> {
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/pullRequests/${prId}?api-version=7.1`;
+    await httpsRequest(url, 'PATCH', authHeaders(token), { title });
 }
 
 export interface AutoCompleteOptions {
@@ -770,17 +899,24 @@ export async function getAssignedWorkItems(
         return [];
     }
 
-    // Fetch details in batches of 200 (API limit)
+    return fetchWorkItemsByIds(org, workItemIds, token);
+}
+
+async function fetchWorkItemsByIds(
+    org: string, ids: number[], token: string
+): Promise<WorkItem[]> {
+    if (ids.length === 0) { return []; }
+
     const batchSize = 200;
     const allWorkItems: WorkItem[] = [];
-    for (let i = 0; i < workItemIds.length; i += batchSize) {
-        const batch = workItemIds.slice(i, i + batchSize);
+    for (let i = 0; i < ids.length; i += batchSize) {
+        const batch = ids.slice(i, i + batchSize);
         const batchUrl =
             `https://dev.azure.com/${encodeURIComponent(org)}/_apis/wit/workitems` +
             `?ids=${batch.join(',')}&fields=System.Id,System.Title,System.State,System.WorkItemType&api-version=7.1`;
         const batchResponse = await httpsGet(batchUrl, authHeaders(token));
         const batchData = JSON.parse(batchResponse);
-        for (const item of batchData.value as Array<{ id: number; fields: Record<string, string> }>) {
+        for (const item of (batchData.value ?? []) as Array<{ id: number; fields: Record<string, string> }>) {
             allWorkItems.push({
                 id: item.id,
                 title: item.fields['System.Title'] ?? '',
@@ -791,6 +927,19 @@ export async function getAssignedWorkItems(
     }
 
     return allWorkItems;
+}
+
+export async function getPrWorkItems(
+    org: string, project: string, repoId: string, prId: number, token: string
+): Promise<number[]> {
+    const url =
+        `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}` +
+        `/_apis/git/repositories/${encodeURIComponent(repoId)}/pullRequests/${prId}/workitems?api-version=7.1`;
+    const body = await httpsGet(url, authHeaders(token));
+    const data = JSON.parse(body);
+    return ((data.value ?? []) as Array<{ id: string | number }>)
+        .map((ref) => typeof ref.id === 'number' ? ref.id : parseInt(ref.id, 10))
+        .filter((id) => !isNaN(id));
 }
 
 // --- PR diff APIs (Phase 2) ---
@@ -818,4 +967,233 @@ export async function getFileContent(
 ): Promise<string> {
     const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/items?path=${encodeURIComponent(path)}&versionDescriptor.version=${commitId}&versionDescriptor.versionType=commit&$format=text&api-version=7.1`;
     return await httpsGet(url, authHeaders(token));
+}
+
+// --- Sprint task creation APIs ---
+
+export interface Iteration {
+    id: string;
+    name: string;
+    path: string;
+}
+
+export interface TeamFieldValue {
+    value: string;
+    includeChildren?: boolean;
+}
+
+export interface TeamFieldValues {
+    referenceName: string;
+    defaultValue?: string;
+    values: TeamFieldValue[];
+}
+
+export async function getCurrentIterations(
+    org: string, project: string, team: string, token: string
+): Promise<Iteration[]> {
+    const url =
+        `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/${encodeURIComponent(team)}` +
+        `/_apis/work/teamsettings/iterations?$timeframe=current&api-version=7.1`;
+    const body = await httpsGet(url, authHeaders(token));
+    const data = JSON.parse(body);
+    const iterations = data.value as Array<{ id: string; name: string; path: string }>;
+    return iterations.map((iteration) => ({
+        id: iteration.id,
+        name: iteration.name,
+        path: iteration.path,
+    }));
+}
+
+export async function getTeamFieldValues(
+    org: string, project: string, team: string, token: string
+): Promise<TeamFieldValues | undefined> {
+    const url =
+        `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/${encodeURIComponent(team)}` +
+        `/_apis/work/teamsettings/teamfieldvalues?api-version=7.1`;
+    const body = await httpsGet(url, authHeaders(token));
+    const data = JSON.parse(body) as {
+        field?: { referenceName?: string };
+        defaultValue?: string;
+        values?: Array<{ value?: string; includeChildren?: boolean }>;
+    };
+
+    const referenceName = data.field?.referenceName;
+    if (!referenceName) {
+        return undefined;
+    }
+
+    const values = (data.values ?? [])
+        .filter((value): value is { value: string; includeChildren?: boolean } => typeof value.value === 'string' && value.value.length > 0)
+        .map((value) => ({
+            value: value.value,
+            includeChildren: value.includeChildren,
+        }));
+
+    return {
+        referenceName,
+        defaultValue: data.defaultValue,
+        values,
+    };
+}
+
+function escapeWiqlString(value: string): string {
+    return value.replace(/'/g, "''");
+}
+
+function buildTeamFieldClause(teamFieldValues?: TeamFieldValues): string {
+    if (!teamFieldValues) {
+        return '';
+    }
+
+    const fieldName = `[${teamFieldValues.referenceName}]`;
+    const values = teamFieldValues.values.length > 0
+        ? teamFieldValues.values
+        : teamFieldValues.defaultValue
+            ? [{ value: teamFieldValues.defaultValue, includeChildren: true }]
+            : [];
+
+    if (values.length === 0) {
+        return '';
+    }
+
+    const clauses = values.map((entry) => {
+        const escapedValue = escapeWiqlString(entry.value);
+        if (teamFieldValues.referenceName === 'System.AreaPath' && entry.includeChildren) {
+            return `${fieldName} UNDER '${escapedValue}'`;
+        }
+        return `${fieldName} = '${escapedValue}'`;
+    });
+
+    return ` AND (${clauses.join(' OR ')})`;
+}
+
+export async function getIterationWorkItems(
+    org: string, project: string, iterationPath: string, token: string, teamFieldValues?: TeamFieldValues
+): Promise<WorkItem[]> {
+    const wiqlUrl =
+        `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}` +
+        `/_apis/wit/wiql?api-version=7.1`;
+    const sanitizedPath = escapeWiqlString(iterationPath);
+    const teamFieldClause = buildTeamFieldClause(teamFieldValues);
+    const wiqlBody = {
+        query:
+            "SELECT [System.Id] FROM WorkItems" +
+            ` WHERE [System.IterationPath] = '${sanitizedPath}'` +
+            teamFieldClause +
+            " AND [System.WorkItemType] IN ('User Story', 'Bug', 'Enabler')" +
+            " AND [System.State] NOT IN ('Done', 'Closed', 'Removed')" +
+            " ORDER BY [System.WorkItemType] ASC, [System.Title] ASC",
+    };
+    const wiqlResponse = await httpsRequest(wiqlUrl, 'POST', authHeaders(token), wiqlBody);
+    const wiqlData = JSON.parse(wiqlResponse);
+    const workItemIds: number[] = (wiqlData.workItems as Array<{ id: number }>).map((wi) => wi.id);
+
+    if (workItemIds.length === 0) {
+        return [];
+    }
+
+    const batchSize = 200;
+    const allWorkItems: WorkItem[] = [];
+    for (let i = 0; i < workItemIds.length; i += batchSize) {
+        const batch = workItemIds.slice(i, i + batchSize);
+        const batchUrl =
+            `https://dev.azure.com/${encodeURIComponent(org)}/_apis/wit/workitems` +
+            `?ids=${batch.join(',')}&fields=System.Id,System.Title,System.State,System.WorkItemType&api-version=7.1`;
+        const batchResponse = await httpsGet(batchUrl, authHeaders(token));
+        const batchData = JSON.parse(batchResponse);
+        for (const item of batchData.value as Array<{ id: number; fields: Record<string, string> }>) {
+            allWorkItems.push({
+                id: item.id,
+                title: item.fields['System.Title'] ?? '',
+                state: item.fields['System.State'] ?? '',
+                type: item.fields['System.WorkItemType'] ?? '',
+            });
+        }
+    }
+
+    return allWorkItems;
+}
+
+export interface CreateWorkItemOptions {
+    org: string;
+    project: string;
+    title: string;
+    iterationPath: string;
+    parentId: number;
+    state?: string;
+    assignTo?: string;
+    token: string;
+}
+
+export async function createWorkItem(options: CreateWorkItemOptions): Promise<{ id: number; url: string }> {
+    const { org, project, token, ...fields } = options;
+    const url =
+        `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}` +
+        `/_apis/wit/workitems/$Task?api-version=7.1`;
+
+    const patchOps: Array<{ op: string; path: string; value: unknown }> = [
+        { op: 'add', path: '/fields/System.Title', value: fields.title },
+        { op: 'add', path: '/fields/System.IterationPath', value: fields.iterationPath },
+        {
+            op: 'add',
+            path: '/relations/-',
+            value: {
+                rel: 'System.LinkTypes.Hierarchy-Reverse',
+                url: `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/wit/workitems/${fields.parentId}`,
+            },
+        },
+    ];
+
+    if (fields.state) {
+        patchOps.push({ op: 'add', path: '/fields/System.State', value: fields.state });
+    }
+
+    if (fields.assignTo) {
+        patchOps.push({ op: 'add', path: '/fields/System.AssignedTo', value: fields.assignTo });
+    }
+
+    const response = await httpsRequest(url, 'POST', {
+        ...authHeaders(token),
+        'Content-Type': 'application/json-patch+json',
+    }, patchOps);
+
+    const data = JSON.parse(response);
+    return { id: data.id, url: data._links?.html?.href ?? data.url };
+}
+
+export async function findPullRequestForBranch(
+    org: string, project: string, repoId: string, branch: string, token: string
+): Promise<PullRequest | undefined> {
+    const searchParams = `searchCriteria.sourceRefName=refs/heads/${encodeURIComponent(branch)}&searchCriteria.status=active`;
+    const url =
+        `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}` +
+        `/_apis/git/repositories/${repoId}/pullRequests?${searchParams}&api-version=7.1`;
+    const body = await httpsGet(url, authHeaders(token));
+    const data = JSON.parse(body);
+    const prs = data.value as PullRequest[];
+    return prs.length > 0 ? prs[0] : undefined;
+}
+
+export async function linkWorkItemToPullRequest(
+    org: string, project: string, workItemId: number, prUrl: string, token: string
+): Promise<void> {
+    const url =
+        `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}` +
+        `/_apis/wit/workitems/${workItemId}?api-version=7.1`;
+    await httpsRequest(url, 'PATCH', {
+        ...authHeaders(token),
+        'Content-Type': 'application/json-patch+json',
+    }, [
+        {
+            op: 'add',
+            path: '/relations/-',
+            value: {
+                rel: 'ArtifactLink',
+                url: prUrl,
+                attributes: {
+                    name: 'Pull Request',
+                },
+            },
+        },
+    ]);
 }

@@ -4,7 +4,6 @@ import { execFile } from "child_process";
 import * as path from "path";
 import { getDevOpsConfig, getBaseUrl, getWorkItemProject } from "../config";
 import {
-  getCurrentBranch,
   getDefaultBranch,
   getRepositoryRoot,
   branchExistsOnRemote,
@@ -12,6 +11,7 @@ import {
 } from "../git";
 import { getWorkItemId } from "../workItem";
 import { getToken } from "../auth";
+import { pickRepository } from "../repoPicker";
 import { editMarkdownViaTempFile } from "../tempMarkdownEditor";
 import {
   createPullRequestApi,
@@ -96,8 +96,8 @@ async function copyRichLink(
   await vscode.env.clipboard.writeText(plainText);
 }
 
-async function getPullRequestTemplate(): Promise<string | undefined> {
-  const repoRoot = await getRepositoryRoot();
+async function getPullRequestTemplate(cwd?: string): Promise<string | undefined> {
+  const repoRoot = await getRepositoryRoot(cwd);
   if (!repoRoot) {
     return undefined;
   }
@@ -160,15 +160,15 @@ export function buildDefaultPullRequestTitle(
 
   const normalizedTitle = titleSource
     .replace(/^(?:feature|bugfix|hotfix|fix|task|chore)\//, "")
-    .replace(/^\d+[-_]?/, workItemId !== undefined ? `AB#${workItemId} ` : "")
+    .replace(/^\d+[-_]?/, workItemId !== undefined ? `#${workItemId} ` : "")
     .replace(/[-_]/g, " ")
     .trim();
 
   return normalizedTitle.replace(/[a-z]/, (match) => match.toUpperCase());
 }
 
-async function ensureBranchOnRemote(branch: string): Promise<boolean> {
-  const onRemote = await branchExistsOnRemote(branch);
+async function ensureBranchOnRemote(branch: string, cwd?: string): Promise<boolean> {
+  const onRemote = await branchExistsOnRemote(branch, cwd);
   if (onRemote) {
     return true;
   }
@@ -198,7 +198,7 @@ async function ensureBranchOnRemote(branch: string): Promise<boolean> {
       location: vscode.ProgressLocation.Notification,
       title: `Pushing "${branch}" to origin...`,
     },
-    () => pushBranchToRemote(branch),
+    () => pushBranchToRemote(branch, cwd),
   );
 
   if (!pushed) {
@@ -213,9 +213,23 @@ export async function createPullRequest(
   secretStorage: vscode.SecretStorage,
 ): Promise<void> {
   try {
+    const repo = await pickRepository();
+    if (!repo) {
+      return;
+    }
+    const cwd = repo.folder.uri.fsPath;
+    const branch = repo.branch;
+
+    if (!branch) {
+      vscode.window.showErrorMessage(
+        "Could not determine the current Git branch.",
+      );
+      return;
+    }
+
     let config;
     try {
-      config = await getDevOpsConfig();
+      config = await getDevOpsConfig(cwd);
     } catch (error) {
       vscode.window.showErrorMessage(
         `Failed to get Azure DevOps configuration: ${error instanceof Error ? error.message : error}`,
@@ -231,20 +245,12 @@ export async function createPullRequest(
       return;
     }
 
-    const branch = await getCurrentBranch();
-    if (!branch) {
-      vscode.window.showErrorMessage(
-        "Could not determine the current Git branch.",
-      );
-      return;
-    }
-
-    const branchReadyOnRemote = await ensureBranchOnRemote(branch);
+    const branchReadyOnRemote = await ensureBranchOnRemote(branch, cwd);
     if (!branchReadyOnRemote) {
       return;
     }
 
-    const defaultBranch = await getDefaultBranch();
+    const defaultBranch = await getDefaultBranch(cwd);
     if (branch === defaultBranch) {
       const choice = await vscode.window.showWarningMessage(
         `You are currently on the default branch "${defaultBranch}". Are you sure you want to create a pull request?`,
@@ -257,7 +263,7 @@ export async function createPullRequest(
     }
 
     // Gather PR details
-    const workItemId = await getWorkItemId();
+    const workItemId = await getWorkItemId(cwd);
     const parsedWorkItemId = workItemId
       ? Number.parseInt(workItemId, 10)
       : undefined;
@@ -316,7 +322,7 @@ export async function createPullRequest(
 
     if (showWorkItemPicker) {
       try {
-        workItemProject = await getWorkItemProject();
+        workItemProject = await getWorkItemProject(cwd);
         const assignedWorkItems = await vscode.window.withProgress(
           {
             location: vscode.ProgressLocation.Notification,
@@ -357,7 +363,7 @@ export async function createPullRequest(
       }
     }
 
-    const template = await getPullRequestTemplate();
+    const template = await getPullRequestTemplate(cwd);
     const templateWithWorkItems = appendWorkItemsToTemplate(
       template,
       selectedWorkItemTitles,
@@ -406,7 +412,7 @@ export async function createPullRequest(
         });
 
         if (selectedWorkItemIds.length > 0 && workItemState) {
-          const wiProject = workItemProject ?? (await getWorkItemProject());
+          const wiProject = workItemProject ?? (await getWorkItemProject(cwd));
           for (const wiId of selectedWorkItemIds) {
             try {
               await updateWorkItemState(
