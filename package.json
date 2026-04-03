@@ -105,6 +105,11 @@
         "icon": "$(edit)"
       },
       {
+        "command": "azureDevops.editPrTitle",
+        "title": "Edit Title",
+        "icon": "$(edit)"
+      },
+      {
         "command": "azureDevops.editPrDescriptionFromPicker",
         "title": "Azure DevOps: Edit Pull Request Description"
       },
@@ -152,19 +157,34 @@
         "title": "Open Comment"
       },
       {
-        "command": "azureDevops.refreshPrDiscussion",
-        "title": "Refresh Discussion",
+        "command": "azureDevops.refreshPrChanges",
+        "title": "Refresh",
         "icon": "$(refresh)"
-      },
-      {
-        "command": "azureDevops.clearPrDiscussion",
-        "title": "Clear Discussion",
-        "icon": "$(clear-all)"
       },
       {
         "command": "azureDevops.replyToDiscussionThread",
         "title": "Reply",
         "icon": "$(comment)"
+      },
+      {
+        "command": "azureDevops.resolveThread",
+        "title": "Resolve",
+        "icon": "$(check)"
+      },
+      {
+        "command": "azureDevops.wontFixThread",
+        "title": "Won't Fix",
+        "icon": "$(circle-slash)"
+      },
+      {
+        "command": "azureDevops.byDesignThread",
+        "title": "By Design",
+        "icon": "$(info)"
+      },
+      {
+        "command": "azureDevops.reactivateThread",
+        "title": "Reactivate",
+        "icon": "$(debug-restart)"
       },
       {
         "command": "azureDevops.addGeneralComment",
@@ -175,6 +195,21 @@
         "command": "azureDevops.openCheckInBrowser",
         "title": "Open Pipeline Run",
         "icon": "$(link-external)"
+      },
+      {
+        "command": "azureDevops.editorApprovePr",
+        "title": "Azure DevOps: Approve PR",
+        "icon": "$(check)"
+      },
+      {
+        "command": "azureDevops.editorRejectPr",
+        "title": "Azure DevOps: Reject PR",
+        "icon": "$(close)"
+      },
+      {
+        "command": "azureDevops.editorWaitForAuthorPr",
+        "title": "Azure DevOps: Wait for Author",
+        "icon": "$(eye)"
       }
     ],
     "viewsContainers": {
@@ -196,11 +231,6 @@
           "id": "azureDevops.prChanges",
           "name": "PR Changes",
           "visibility": "collapsed"
-        },
-        {
-          "id": "azureDevops.prDiscussion",
-          "name": "PR Discussion",
-          "visibility": "collapsed"
         }
       ]
     },
@@ -220,6 +250,39 @@
         {
           "command": "azureDevops.openCheckInBrowser",
           "when": "false"
+        },
+        {
+          "command": "azureDevops.editPrTitle",
+          "when": "false"
+        },
+        {
+          "command": "azureDevops.editorApprovePr",
+          "when": "false"
+        },
+        {
+          "command": "azureDevops.editorRejectPr",
+          "when": "false"
+        },
+        {
+          "command": "azureDevops.editorWaitForAuthorPr",
+          "when": "false"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "azureDevops.editorApprovePr",
+          "when": "azureDevops.prDiffActive",
+          "group": "navigation@1"
+        },
+        {
+          "command": "azureDevops.editorWaitForAuthorPr",
+          "when": "azureDevops.prDiffActive",
+          "group": "navigation@2"
+        },
+        {
+          "command": "azureDevops.editorRejectPr",
+          "when": "azureDevops.prDiffActive",
+          "group": "navigation@3"
         }
       ],
       "view/title": [
@@ -239,23 +302,18 @@
           "group": "navigation"
         },
         {
-          "command": "azureDevops.clearPrChanges",
+          "command": "azureDevops.addGeneralComment",
           "when": "view == azureDevops.prChanges",
           "group": "navigation"
         },
         {
-          "command": "azureDevops.refreshPrDiscussion",
-          "when": "view == azureDevops.prDiscussion",
+          "command": "azureDevops.refreshPrChanges",
+          "when": "view == azureDevops.prChanges",
           "group": "navigation"
         },
         {
-          "command": "azureDevops.clearPrDiscussion",
-          "when": "view == azureDevops.prDiscussion",
-          "group": "navigation"
-        },
-        {
-          "command": "azureDevops.addGeneralComment",
-          "when": "view == azureDevops.prDiscussion",
+          "command": "azureDevops.clearPrChanges",
+          "when": "view == azureDevops.prChanges",
           "group": "navigation"
         }
       ],
@@ -311,14 +369,39 @@
           "group": "2_actions@4"
         },
         {
+          "command": "azureDevops.editPrTitle",
+          "when": "viewItem == pullRequest",
+          "group": "2_actions@5"
+        },
+        {
           "command": "azureDevops.checkoutPrBranch",
           "when": "viewItem == pullRequest",
           "group": "3_branch@1"
         },
         {
           "command": "azureDevops.replyToDiscussionThread",
-          "when": "viewItem == discussionThread",
+          "when": "viewItem =~ /^discussionThread\\./",
           "group": "inline"
+        },
+        {
+          "command": "azureDevops.resolveThread",
+          "when": "viewItem == discussionThread.active",
+          "group": "1_status@1"
+        },
+        {
+          "command": "azureDevops.wontFixThread",
+          "when": "viewItem == discussionThread.active",
+          "group": "1_status@2"
+        },
+        {
+          "command": "azureDevops.byDesignThread",
+          "when": "viewItem == discussionThread.active",
+          "group": "1_status@3"
+        },
+        {
+          "command": "azureDevops.reactivateThread",
+          "when": "viewItem == discussionThread.resolved",
+          "group": "1_status@1"
         }
       ]
     },
@@ -436,14 +519,14 @@
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",
-    "@types/node": "^20.11.0",
-    "@types/vscode": "^1.85.0",
-    "@typescript-eslint/eslint-plugin": "^8.57.0",
-    "@typescript-eslint/parser": "^8.57.0",
-    "eslint": "^10.0.3",
+    "@types/node": "^20.19.37",
+    "@types/vscode": "^1.110.0",
+    "@typescript-eslint/eslint-plugin": "^8.58.0",
+    "@typescript-eslint/parser": "^8.58.0",
+    "eslint": "^10.1.0",
     "jest": "^29.7.0",
     "jest-util": "^29.7.0",
-    "ts-jest": "^29.4.6",
-    "typescript": "^5.3.3"
+    "ts-jest": "^29.4.9",
+    "typescript": "^5.9.3"
   }
 }

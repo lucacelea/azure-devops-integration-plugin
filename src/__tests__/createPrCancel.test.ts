@@ -1,6 +1,13 @@
 import * as vscode from "vscode";
 import { createPullRequest } from "../commands/createPr";
 
+jest.mock("../repoPicker", () => ({
+  pickRepository: jest.fn().mockResolvedValue({
+    folder: { uri: { fsPath: "/workspace" }, name: "repo" },
+    branch: "feature/my-branch",
+  }),
+}));
+
 jest.mock("../config", () => ({
   getDevOpsConfig: jest.fn().mockResolvedValue({
     organization: "org",
@@ -125,7 +132,7 @@ describe("createPullRequest cancel confirmation", () => {
 
     await createPullRequest({} as vscode.SecretStorage);
 
-    expect(git.pushBranchToRemote).toHaveBeenCalledWith("feature/my-branch");
+    expect(git.pushBranchToRemote).toHaveBeenCalledWith("feature/my-branch", "/workspace");
     expect(api.createPullRequestApi).toHaveBeenCalledTimes(1);
   });
 
