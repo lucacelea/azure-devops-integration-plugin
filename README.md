@@ -19,12 +19,15 @@ Each PR displays rich status information:
 - Source branch as an expandable child item
 - Check summary with per-check child items when policies exist
 - Linked work items as expandable child items, including type and state
+- Pipeline-backed policy checks can be clicked to open the corresponding Azure DevOps pipeline run in the browser
 
 Click any PR to open its `PR Changes` view in VS Code. Changed files can expand to show file-level discussion threads, and general PR comments are grouped under a `General Comments` node. From the thread context menu you can reply, resolve, reactivate, or mark a thread as `Won't Fix` or `By Design`. Use the PR context menu to open the PR in Azure DevOps, add comments, or edit the PR description when needed.
 
 When viewing a PR diff, approve, reject, and wait-for-author buttons appear in the editor title bar for quick voting without leaving the diff.
 
 The PR context menu also includes **Edit Title**, which opens an input box pre-filled with the current pull request title and updates the PR immediately after confirmation.
+
+When a policy check is backed by an Azure DevOps build validation run, clicking that check opens the pipeline results page directly in your browser.
 
 ### Comment Notifications And Discussion
 

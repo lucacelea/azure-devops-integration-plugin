@@ -34,6 +34,11 @@ export function activate(context: vscode.ExtensionContext) {
             prProvider.refresh();
         }),
         vscode.commands.registerCommand('azureDevops.refreshPullRequests', () => prProvider.refresh()),
+        vscode.commands.registerCommand('azureDevops.openCheckInBrowser', async (url: string) => {
+            if (url) {
+                await vscode.env.openExternal(vscode.Uri.parse(url));
+            }
+        }),
         vscode.commands.registerCommand('azureDevops.editPrDescription', (item?: any) => {
             return editExistingPrDescription(prProvider, item);
         }),

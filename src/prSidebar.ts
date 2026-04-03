@@ -223,6 +223,14 @@ export class PullRequestItem extends vscode.TreeItem {
         item.iconPath = new vscode.ThemeIcon(iconId, iconColor);
         item.contextValue = 'policyCheck';
 
+        if (check.pipelineUrl) {
+            item.command = {
+                command: 'azureDevops.openCheckInBrowser',
+                title: 'Open Pipeline Run',
+                arguments: [check.pipelineUrl],
+            };
+        }
+
         return item;
     }
 
