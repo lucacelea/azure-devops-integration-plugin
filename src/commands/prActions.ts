@@ -8,7 +8,7 @@ import {
     getPullRequestDetails,
     updatePullRequestTitle,
 } from '../api';
-import { getToken } from '../auth';
+import { getAuthenticationRequiredMessage, getToken } from '../auth';
 import { buildPullRequestUrl } from '../prLinks';
 import { parsePrFileUri } from '../prContentProvider';
 
@@ -25,7 +25,7 @@ async function getContext(item: PullRequestItem, provider: PullRequestTreeProvid
     }
     const token = await getToken(provider.secretStorage);
     if (!token) {
-        vscode.window.showErrorMessage('No PAT configured.');
+        vscode.window.showErrorMessage(getAuthenticationRequiredMessage());
         return undefined;
     }
     const userId = provider.cachedUserId;
@@ -200,7 +200,7 @@ export function registerEditorVoteCommands(
 
                 const token = await getToken(provider.secretStorage);
                 if (!token) {
-                    vscode.window.showErrorMessage('No PAT configured.');
+                    vscode.window.showErrorMessage(getAuthenticationRequiredMessage());
                     return;
                 }
                 const userId = provider.cachedUserId;

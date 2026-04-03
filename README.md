@@ -77,6 +77,7 @@ Open the Command Palette (`Cmd+Shift+P`) and type "Azure DevOps" to access:
 | **Azure DevOps: Open Repository** | Opens the repository in Azure DevOps. |
 | **Azure DevOps: Open Work Item** | Opens a work item by ID. Pre-fills the detected ID from the current branch. |
 | **Azure DevOps: Edit Pull Request Description** | Lets you pick one of your authored pull requests, opens its current description in a temporary markdown editor, and updates the PR when you close the tab. |
+| **Azure DevOps: Configure Authentication** | Choose Azure AD sign-in or PAT setup from one place. |
 | **Azure DevOps: Set Personal Access Token** | Configure your PAT for API access. |
 | **Azure DevOps: Remove Personal Access Token** | Remove your stored PAT. |
 | **Azure DevOps: Refresh Pull Requests** | Manually refresh the PR sidebar. |
@@ -91,25 +92,26 @@ Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/item
 
 ### 2. Set Up Authentication
 
-The extension supports two authentication methods:
+The extension supports two authentication methods. By default, `azureDevops.authMethod` is `auto`, which prefers Azure AD when you are signed in and falls back to a stored PAT.
 
-#### Option A: Personal Access Token (PAT) — default
+#### Option A: Azure AD / Microsoft Account
+
+1. Run **Azure DevOps: Login with Azure AD** or **Azure DevOps: Configure Authentication**.
+2. Follow the browser prompt to sign in with your Microsoft account.
+
+VS Code handles token refresh automatically. No PAT rotation is needed.
+
+#### Option B: Personal Access Token (PAT)
 
 1. Generate a [Personal Access Token (PAT)](https://learn.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate) in Azure DevOps with the following scopes:
    - **Code**: Read
    - **Work Items**: Read
    - **Project and Team**: Read
-2. Run the command **Azure DevOps: Set Personal Access Token** and paste your token.
+2. Run the command **Azure DevOps: Set Personal Access Token** or **Azure DevOps: Configure Authentication** and paste your token.
 
 Your PAT is stored securely using VS Code's built-in SecretStorage API.
 
-#### Option B: Azure AD / Microsoft Account (OAuth)
-
-1. Set `azureDevops.authMethod` to `azureAd` in your VS Code settings.
-2. Run the command **Azure DevOps: Login with Azure AD**.
-3. Follow the browser prompt to sign in with your Microsoft account.
-
-VS Code handles token refresh automatically. No PAT rotation is needed.
+If you want to force one auth mode instead of using automatic detection, set `azureDevops.authMethod` to `pat` or `azureAd`.
 
 ### 3. Open a Repository
 
@@ -126,7 +128,7 @@ All settings are optional — the extension auto-detects values from your git re
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `azureDevops.authMethod` | `pat` | Authentication method: `pat` (Personal Access Token) or `azureAd` (Azure AD / Microsoft account) |
+| `azureDevops.authMethod` | `auto` | Authentication method: `auto` (prefer Azure AD, then PAT), `pat`, or `azureAd` |
 | `azureDevops.organization` | Auto-detected | Azure DevOps organization name |
 | `azureDevops.project` | Auto-detected | Azure DevOps project name |
 | `azureDevops.repository` | Auto-detected | Azure DevOps repository name |

@@ -10,7 +10,7 @@ import {
   pushBranchToRemote,
 } from "../git";
 import { getWorkItemId } from "../workItem";
-import { getToken } from "../auth";
+import { getAuthenticationRequiredMessage, getToken } from "../auth";
 import { pickRepository } from "../repoPicker";
 import { editMarkdownViaTempFile } from "../tempMarkdownEditor";
 import {
@@ -239,9 +239,7 @@ export async function createPullRequest(
 
     const token = await getToken(secretStorage);
     if (!token) {
-      vscode.window.showErrorMessage(
-        "No PAT configured. Please set your Personal Access Token first.",
-      );
+      vscode.window.showErrorMessage(getAuthenticationRequiredMessage());
       return;
     }
 

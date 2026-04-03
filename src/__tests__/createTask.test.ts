@@ -12,6 +12,9 @@ jest.mock('../config', () => ({
 
 jest.mock('../auth', () => ({
     getToken: jest.fn().mockResolvedValue('token'),
+    getAuthenticationRequiredMessage: jest.fn().mockReturnValue(
+        'Not authenticated. Sign in with Azure AD or set a Personal Access Token.',
+    ),
 }));
 
 jest.mock('../repoPicker', () => ({
@@ -81,13 +84,13 @@ describe('createTaskForPr', () => {
         });
     });
 
-    it('shows an error when no PAT is configured', async () => {
+    it('shows an error when no credentials are configured', async () => {
         auth.getToken.mockResolvedValueOnce(undefined);
 
         await createTaskForPr({} as vscode.SecretStorage);
 
         expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-            'No PAT configured. Please set your Personal Access Token first.',
+            'Not authenticated. Sign in with Azure AD or set a Personal Access Token.',
         );
         expect(api.createWorkItem).not.toHaveBeenCalled();
     });

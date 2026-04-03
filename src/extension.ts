@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { createPullRequest } from './commands/createPr';
 import { openRepository } from './commands/openRepo';
 import { openWorkItem } from './commands/openWorkItem';
-import { setToken, removeToken, loginWithAzureAd, logoutFromAzureAd } from './auth';
+import { configureAuthentication, setToken, removeToken, loginWithAzureAd, logoutFromAzureAd } from './auth';
 import { createTaskForPr } from './commands/createTask';
 import { createStatusBarItem } from './statusBar';
 import { registerPrSidebar, PrFilter, PrSort } from './prSidebar';
@@ -27,6 +27,7 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('azureDevops.createTaskForPr', () => createTaskForPr(secretStorage)),
         vscode.commands.registerCommand('azureDevops.openRepository', openRepository),
         vscode.commands.registerCommand('azureDevops.openWorkItem', openWorkItem),
+        vscode.commands.registerCommand('azureDevops.configureAuthentication', () => configureAuthentication(secretStorage)),
         vscode.commands.registerCommand('azureDevops.setToken', async () => {
             await setToken(secretStorage);
             prProvider.refresh();

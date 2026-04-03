@@ -1,5 +1,5 @@
 import * as https from 'https';
-import { getConfiguredAuthMethod } from './auth';
+import { getConfiguredAuthMethod, getResolvedAuthMethodForToken } from './auth';
 
 export interface PullRequest {
     pullRequestId: number;
@@ -92,7 +92,9 @@ export interface MyPullRequests {
 }
 
 export function authHeaders(token: string): Record<string, string> {
-    const authorization = getConfiguredAuthMethod() === 'azureAd'
+    const resolvedMethod = getResolvedAuthMethodForToken(token)
+        ?? (getConfiguredAuthMethod() === 'azureAd' ? 'azureAd' : 'pat');
+    const authorization = resolvedMethod === 'azureAd'
         ? `Bearer ${token}`
         : `Basic ${Buffer.from(':' + token).toString('base64')}`;
     return {

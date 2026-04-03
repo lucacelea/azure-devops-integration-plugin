@@ -6,6 +6,7 @@ beforeEach(() => {
     jest.restoreAllMocks();
     (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
         get: jest.fn().mockImplementation((_key: string, defaultValue?: unknown) => defaultValue),
+        update: jest.fn().mockResolvedValue(undefined),
     });
     (vscode.authentication.getSession as jest.Mock).mockResolvedValue(undefined);
 });
@@ -16,12 +17,18 @@ function mockAuthMethod(method: string) {
             if (key === 'authMethod') { return method; }
             return defaultValue;
         }),
+        update: jest.fn().mockResolvedValue(undefined),
     });
 }
 
 describe('getConfiguredAuthMethod', () => {
-    it('defaults to pat when setting is absent', () => {
-        expect(getConfiguredAuthMethod()).toBe('pat');
+    it('defaults to auto when setting is absent', () => {
+        expect(getConfiguredAuthMethod()).toBe('auto');
+    });
+
+    it('returns auto when setting is auto', () => {
+        mockAuthMethod('auto');
+        expect(getConfiguredAuthMethod()).toBe('auto');
     });
 
     it('returns azureAd when setting is azureAd', () => {
@@ -29,21 +36,23 @@ describe('getConfiguredAuthMethod', () => {
         expect(getConfiguredAuthMethod()).toBe('azureAd');
     });
 
-    it('returns pat for unrecognised values', () => {
+    it('returns auto for unrecognised values', () => {
         mockAuthMethod('unknown');
-        expect(getConfiguredAuthMethod()).toBe('pat');
+        expect(getConfiguredAuthMethod()).toBe('auto');
     });
 });
 
 describe('getToken', () => {
     it('reads from SecretStorage when auth method is pat', async () => {
+        mockAuthMethod('pat');
         const secretStorage = { get: jest.fn().mockResolvedValue('my-pat') } as unknown as vscode.SecretStorage;
         const token = await getToken(secretStorage);
         expect(token).toBe('my-pat');
         expect(secretStorage.get).toHaveBeenCalledWith('azureDevops.pat');
     });
 
-    it('returns undefined when no PAT is stored', async () => {
+    it('returns undefined when no PAT is stored in pat mode', async () => {
+        mockAuthMethod('pat');
         const secretStorage = { get: jest.fn().mockResolvedValue(undefined) } as unknown as vscode.SecretStorage;
         const token = await getToken(secretStorage);
         expect(token).toBeUndefined();
@@ -70,6 +79,29 @@ describe('getToken', () => {
         expect(token).toBeUndefined();
     });
 
+    it('prefers Azure AD in auto mode when a session exists', async () => {
+        mockAuthMethod('auto');
+        (vscode.authentication.getSession as jest.Mock).mockResolvedValue({
+            accessToken: 'ad-token-123',
+            account: { label: 'user@example.com' },
+        });
+
+        const secretStorage = { get: jest.fn().mockResolvedValue('my-pat') } as unknown as vscode.SecretStorage;
+        const token = await getToken(secretStorage);
+        expect(token).toBe('ad-token-123');
+        expect(secretStorage.get).not.toHaveBeenCalled();
+    });
+
+    it('falls back to PAT in auto mode when Azure AD is unavailable', async () => {
+        mockAuthMethod('auto');
+        (vscode.authentication.getSession as jest.Mock).mockResolvedValue(undefined);
+
+        const secretStorage = { get: jest.fn().mockResolvedValue('my-pat') } as unknown as vscode.SecretStorage;
+        const token = await getToken(secretStorage);
+        expect(token).toBe('my-pat');
+        expect(secretStorage.get).toHaveBeenCalledWith('azureDevops.pat');
+    });
+
     it('returns undefined when Azure AD getSession throws', async () => {
         mockAuthMethod('azureAd');
         (vscode.authentication.getSession as jest.Mock).mockRejectedValue(new Error('provider unavailable'));
@@ -82,6 +114,7 @@ describe('getToken', () => {
 
 describe('loginWithAzureAd', () => {
     it('returns true and shows message on successful login', async () => {
+        mockAuthMethod('auto');
         (vscode.authentication.getSession as jest.Mock).mockResolvedValue({
             accessToken: 'token',
             account: { label: 'user@corp.com' },
@@ -90,6 +123,28 @@ describe('loginWithAzureAd', () => {
         expect(result).toBe(true);
         expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
             expect.stringContaining('user@corp.com'),
+        );
+    });
+
+    it('switches pat mode to auto after successful login', async () => {
+        const update = jest.fn().mockResolvedValue(undefined);
+        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
+            get: jest.fn().mockImplementation((key: string, defaultValue?: unknown) => {
+                if (key === 'authMethod') { return 'pat'; }
+                return defaultValue;
+            }),
+            update,
+        });
+        (vscode.authentication.getSession as jest.Mock).mockResolvedValue({
+            accessToken: 'token',
+            account: { label: 'user@corp.com' },
+        });
+
+        const result = await loginWithAzureAd();
+        expect(result).toBe(true);
+        expect(update).toHaveBeenCalledWith('authMethod', 'auto', vscode.ConfigurationTarget.Global);
+        expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+            expect.stringContaining('Authentication mode set to automatic'),
         );
     });
 

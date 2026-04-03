@@ -4,10 +4,11 @@ All notable changes to the "Azure DevOps Integration" extension will be document
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [1.0.0] - 2026-04-03
 
 ### Added
 
+- **Unified authentication setup**: new `Azure DevOps: Configure Authentication` command lets you choose Azure AD sign-in or PAT setup from a single entry point.
 - **Create Task for PR**: new `Azure DevOps: Create Task for PR` command creates a Task work item in the active sprint under a selected parent backlog item, assigns it to you, and links it to the current branch's pull request when one exists.
 - **Direct links from PR checks to pipeline runs**: policy checks backed by Azure DevOps build validation now open the corresponding pipeline results page in the browser when you click the check item in the PR sidebar.
 - **Edit existing PR titles**: pull requests in the sidebar now include an `Edit Title` action that opens an input box with the current title, updates the pull request in Azure DevOps, and refreshes the list after a successful change.
@@ -19,6 +20,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Authentication now defaults to automatic selection**: `azureDevops.authMethod` now defaults to `auto`, which prefers an existing Azure AD session and falls back to a stored PAT.
+- **Azure AD login and PAT setup now return the extension to automatic mode**: signing in with Azure AD or saving a PAT no longer leaves the extension stuck in a mismatched auth setting.
+- **Authentication prompts are no longer PAT-only**: empty states and auth-required errors now guide you toward either Azure AD sign-in or PAT setup instead of always asking for a PAT.
 - **Configurable sprint team selection**: task creation now uses the new `azureDevops.team` setting for current-iteration queries, defaulting to `{project} Team` when left empty.
 - **Task creation now uses the selected repository context**: in multi-root workspaces, `Create Task for PR` now resolves organization, project, branch, and work item project from the repository you picked instead of always falling back to the first workspace folder.
 - **Task creation now assigns to the authenticated user with a resolvable identity value**: new tasks use your Azure DevOps sign-in identity instead of the raw connection-data GUID, which Azure DevOps rejects for `Assigned To`.
