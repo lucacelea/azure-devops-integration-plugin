@@ -1,6 +1,6 @@
 # Azure DevOps Integration for VS Code
 
-A VS Code extension for Azure DevOps. Browse pull requests in a sidebar grouped by "Created by me," "Assigned to me," and "My teams," review changes and discussion in a unified tree, inspect linked work items, and create PRs without leaving the editor.
+A VS Code extension for Azure DevOps. Browse pull requests in a sidebar grouped by "Created by me," "Assigned to me," and "My teams," review changes and discussion in a unified tree, inspect linked work items, create PRs, and edit PR titles and descriptions without leaving the editor.
 
 ## Features
 
@@ -23,6 +23,8 @@ Each PR displays rich status information:
 Click any PR to open its `PR Changes` view in VS Code. Changed files can expand to show file-level discussion threads, and general PR comments are grouped under a `General Comments` node. From the thread context menu you can reply, resolve, reactivate, or mark a thread as `Won't Fix` or `By Design`. Use the PR context menu to open the PR in Azure DevOps, add comments, or edit the PR description when needed.
 
 When viewing a PR diff, approve, reject, and wait-for-author buttons appear in the editor title bar for quick voting without leaving the diff.
+
+The PR context menu also includes **Edit Title**, which opens an input box pre-filled with the current pull request title and updates the PR immediately after confirmation.
 
 ### Comment Notifications And Discussion
 
@@ -58,6 +60,8 @@ Open the Command Palette (`Cmd+Shift+P`) and type "Azure DevOps" to access:
 | **Azure DevOps: Set Personal Access Token** | Configure your PAT for API access. |
 | **Azure DevOps: Remove Personal Access Token** | Remove your stored PAT. |
 | **Azure DevOps: Refresh Pull Requests** | Manually refresh the PR sidebar. |
+
+The PR sidebar context menu also includes **Edit Title**, which opens an input box pre-filled with the current pull request title and updates the PR immediately after confirmation.
 
 ## Getting Started
 

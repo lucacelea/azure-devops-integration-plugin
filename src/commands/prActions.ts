@@ -6,6 +6,7 @@ import {
     abandonPullRequest,
     addPullRequestComment,
     getPullRequestDetails,
+    updatePullRequestTitle,
 } from '../api';
 import { getToken } from '../auth';
 import { buildPullRequestUrl } from '../prLinks';
@@ -129,6 +130,27 @@ export function registerPrActions(
                 provider.refresh();
             } catch (e: any) {
                 vscode.window.showErrorMessage(`Failed to add comment: ${e.message}`);
+            }
+        })
+    );
+
+    // Edit title
+    context.subscriptions.push(
+        vscode.commands.registerCommand('azureDevops.editPrTitle', async (item: PullRequestItem) => {
+            const ctx = await getContext(item, provider);
+            if (!ctx) { return; }
+            const newTitle = await vscode.window.showInputBox({
+                prompt: `Edit title of PR #${ctx.pr.pullRequestId}`,
+                value: ctx.pr.title,
+            });
+            if (!newTitle) { return; }
+            if (newTitle === ctx.pr.title) { return; }
+            try {
+                await updatePullRequestTitle(ctx.org, ctx.project, ctx.repoId, ctx.pr.pullRequestId, newTitle, ctx.token);
+                vscode.window.showInformationMessage(`PR #${ctx.pr.pullRequestId} title updated.`);
+                provider.refresh();
+            } catch (e: any) {
+                vscode.window.showErrorMessage(`Failed to update title: ${e.message}`);
             }
         })
     );

@@ -105,6 +105,11 @@
         "icon": "$(edit)"
       },
       {
+        "command": "azureDevops.editPrTitle",
+        "title": "Edit Title",
+        "icon": "$(edit)"
+      },
+      {
         "command": "azureDevops.editPrDescriptionFromPicker",
         "title": "Azure DevOps: Edit Pull Request Description"
       },
@@ -238,6 +243,10 @@
           "when": "false"
         },
         {
+          "command": "azureDevops.editPrTitle",
+          "when": "false"
+        },
+        {
           "command": "azureDevops.editorApprovePr",
           "when": "false"
         },
@@ -349,6 +358,11 @@
           "command": "azureDevops.editPrDescription",
           "when": "viewItem == pullRequest",
           "group": "2_actions@4"
+        },
+        {
+          "command": "azureDevops.editPrTitle",
+          "when": "viewItem == pullRequest",
+          "group": "2_actions@5"
         },
         {
           "command": "azureDevops.checkoutPrBranch",

@@ -714,6 +714,14 @@ export async function updatePullRequestDescription(
     await httpsRequest(url, 'PATCH', authHeaders(token), { description });
 }
 
+export async function updatePullRequestTitle(
+    org: string, project: string, repoId: string, prId: number,
+    title: string, token: string
+): Promise<void> {
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/pullRequests/${prId}?api-version=7.1`;
+    await httpsRequest(url, 'PATCH', authHeaders(token), { title });
+}
+
 export interface AutoCompleteOptions {
     mergeStrategy: 'noFastForward' | 'squash' | 'rebase' | 'rebaseMerge';
     deleteSourceBranch: boolean;
