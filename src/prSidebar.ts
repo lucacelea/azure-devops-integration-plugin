@@ -541,8 +541,8 @@ export class PullRequestTreeProvider implements vscode.TreeDataProvider<PullRequ
             if (!token) {
                 return [
                     PullRequestItem.message(
-                        'Set up PAT to view pull requests',
-                        'azureDevops.setToken'
+                        'Sign in to Azure DevOps',
+                        'azureDevops.configureAuthentication'
                     ),
                 ];
             }

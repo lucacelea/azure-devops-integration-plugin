@@ -98,6 +98,7 @@ export class RelativePattern {
 export const window = {
     showErrorMessage: jest.fn(),
     showInformationMessage: jest.fn(),
+    showWarningMessage: jest.fn(),
     showInputBox: jest.fn(),
     showQuickPick: jest.fn(),
     showTextDocument: jest.fn(),
@@ -116,6 +117,11 @@ export const window = {
     activeTextEditor: undefined as any,
 };
 export const StatusBarAlignment = { Left: 1, Right: 2 };
+export const ConfigurationTarget = {
+    Global: 1,
+    Workspace: 2,
+    WorkspaceFolder: 3,
+};
 export const workspace = {
     workspaceFolders: undefined as any,
     openTextDocument: jest.fn(),
@@ -129,6 +135,7 @@ export const workspace = {
     }),
     getConfiguration: jest.fn().mockReturnValue({
         get: jest.fn().mockImplementation((_key: string, defaultValue?: unknown) => defaultValue),
+        update: jest.fn().mockResolvedValue(undefined),
     }),
 };
 export const commands = {
@@ -143,4 +150,7 @@ export const env = {
     clipboard: {
         writeText: jest.fn(),
     },
+};
+export const authentication = {
+    getSession: jest.fn().mockResolvedValue(undefined),
 };

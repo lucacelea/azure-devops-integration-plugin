@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { PrThread, getPrThreads, addPullRequestFileComment, replyToThread } from './api';
 import { parsePrFileUri } from './prContentProvider';
-import { getToken } from './auth';
+import { getAuthenticationRequiredMessage, getToken } from './auth';
 
 interface ThreadMeta {
     org: string;
@@ -174,7 +174,7 @@ export class PrCommentController implements vscode.Disposable {
 
         const token = await getToken(this.secretStorage);
         if (!token) {
-            vscode.window.showErrorMessage('No PAT configured.');
+            vscode.window.showErrorMessage(getAuthenticationRequiredMessage());
             return;
         }
 
@@ -235,7 +235,7 @@ export class PrCommentController implements vscode.Disposable {
 
         const token = await getToken(this.secretStorage);
         if (!token) {
-            vscode.window.showErrorMessage('No PAT configured.');
+            vscode.window.showErrorMessage(getAuthenticationRequiredMessage());
             return;
         }
 

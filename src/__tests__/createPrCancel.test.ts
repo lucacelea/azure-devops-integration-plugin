@@ -20,6 +20,11 @@ jest.mock("../config", () => ({
 
 jest.mock("../auth", () => ({
   getToken: jest.fn().mockResolvedValue("token"),
+  getAuthenticationRequiredMessage: jest
+    .fn()
+    .mockReturnValue(
+      "Not authenticated. Sign in with Azure AD or set a Personal Access Token.",
+    ),
 }));
 
 jest.mock("../git", () => ({

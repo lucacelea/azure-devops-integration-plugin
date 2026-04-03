@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { getFileContent } from './api';
-import { getToken } from './auth';
+import { getAuthenticationRequiredMessage, getToken } from './auth';
 
 export class PrContentProvider implements vscode.TextDocumentContentProvider {
     private secretStorage: vscode.SecretStorage;
@@ -25,7 +25,7 @@ export class PrContentProvider implements vscode.TextDocumentContentProvider {
 
         const token = await getToken(this.secretStorage);
         if (!token) {
-            throw new Error('No PAT configured');
+            throw new Error(getAuthenticationRequiredMessage());
         }
 
         return await getFileContent(org, project, repoId, filePath, commitId, token);

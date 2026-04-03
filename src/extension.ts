@@ -2,8 +2,8 @@ import * as vscode from 'vscode';
 import { createPullRequest } from './commands/createPr';
 import { openRepository } from './commands/openRepo';
 import { openWorkItem } from './commands/openWorkItem';
+import { configureAuthentication, setToken, removeToken, loginWithAzureAd, logoutFromAzureAd } from './auth';
 import { createTaskForPr } from './commands/createTask';
-import { setToken, removeToken } from './auth';
 import { createStatusBarItem } from './statusBar';
 import { registerPrSidebar, PrFilter, PrSort } from './prSidebar';
 import { registerPrActions, registerEditorVoteCommands } from './commands/prActions';
@@ -27,12 +27,21 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('azureDevops.createTaskForPr', () => createTaskForPr(secretStorage)),
         vscode.commands.registerCommand('azureDevops.openRepository', openRepository),
         vscode.commands.registerCommand('azureDevops.openWorkItem', openWorkItem),
+        vscode.commands.registerCommand('azureDevops.configureAuthentication', () => configureAuthentication(secretStorage)),
         vscode.commands.registerCommand('azureDevops.setToken', async () => {
             await setToken(secretStorage);
             prProvider.refresh();
         }),
         vscode.commands.registerCommand('azureDevops.removeToken', async () => {
             await removeToken(secretStorage);
+            prProvider.refresh();
+        }),
+        vscode.commands.registerCommand('azureDevops.loginAzureAd', async () => {
+            const ok = await loginWithAzureAd();
+            if (ok) { prProvider.refresh(); }
+        }),
+        vscode.commands.registerCommand('azureDevops.logoutAzureAd', async () => {
+            await logoutFromAzureAd();
             prProvider.refresh();
         }),
         vscode.commands.registerCommand('azureDevops.refreshPullRequests', () => prProvider.refresh()),
