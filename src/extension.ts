@@ -5,13 +5,12 @@ import { openWorkItem } from './commands/openWorkItem';
 import { setToken, removeToken } from './auth';
 import { createStatusBarItem } from './statusBar';
 import { registerPrSidebar, PrFilter, PrSort } from './prSidebar';
-import { registerPrActions } from './commands/prActions';
+import { registerPrActions, registerEditorVoteCommands } from './commands/prActions';
 import { checkoutPrBranch } from './commands/checkoutBranch';
 import { editExistingPrDescription } from './commands/editPrDescription';
-import { PrChangesProvider, PrFileItem } from './prChangesProvider';
+import { PrChangesProvider, PrFileItem, PrCommentThreadItem } from './prChangesProvider';
 import { PrContentProvider, buildPrFileUri } from './prContentProvider';
 import { PrCommentController } from './prComments';
-import { PrDiscussionProvider, PrDiscussionItem } from './prDiscussionProvider';
 import { PrCommentDocProvider, PR_COMMENT_SCHEME } from './prCommentDocProvider';
 import { buildPullRequestThreadUrl } from './prLinks';
 
@@ -98,32 +97,24 @@ export function activate(context: vscode.ExtensionContext) {
     prCommentController.loadExisting();
     context.subscriptions.push(
         prCommentController,
-        prCommentController.onDidAddComment(() => prDiscussionProvider.refresh()),
+        prCommentController.onDidAddComment(() => prChangesProvider.refresh()),
         vscode.commands.registerCommand('azureDevops.replyToComment', (reply: vscode.CommentReply) => {
             return prCommentController.replyToThread(reply);
         }),
     );
 
-    // PR changes tree view (Phase 2)
+    // PR changes tree view (includes file changes + discussion threads)
     const prChangesProvider = new PrChangesProvider(secretStorage);
     const prChangesTree = vscode.window.createTreeView('azureDevops.prChanges', {
         treeDataProvider: prChangesProvider,
     });
     context.subscriptions.push(prChangesTree);
 
-    // PR Discussion tree view
-    const prDiscussionProvider = new PrDiscussionProvider(secretStorage);
-    const prDiscussionTree = vscode.window.createTreeView('azureDevops.prDiscussion', {
-        treeDataProvider: prDiscussionProvider,
-    });
-
     prProvider.setCommentNotificationHandlers({
         openComment: async ({ org, pr, thread }) => {
             prChangesProvider.selectPr(pr, org);
             prChangesTree.title = `Changes: #${pr.pullRequestId}`;
-            prDiscussionProvider.selectPr(pr, org);
-            prDiscussionTree.title = `Discussion: #${pr.pullRequestId}`;
-            await prDiscussionProvider.openThreadById(pr, org, thread.threadId);
+            await prChangesProvider.openThreadById(pr, org, thread.threadId);
         },
         openInDevOps: async ({ org, pr, thread }) => {
             const project = pr.repository?.project?.name ?? '';
@@ -134,13 +125,10 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     context.subscriptions.push(
-        prDiscussionTree,
         vscode.commands.registerCommand('azureDevops.reviewPrChanges', (item: any) => {
             if (item?.pr && item?.org) {
                 prChangesProvider.selectPr(item.pr, item.org);
                 prChangesTree.title = `Changes: #${item.pr.pullRequestId}`;
-                prDiscussionProvider.selectPr(item.pr, item.org);
-                prDiscussionTree.title = `Discussion: #${item.pr.pullRequestId}`;
             }
         }),
         vscode.commands.registerCommand('azureDevops.clearPrChanges', () => {
@@ -148,34 +136,30 @@ export function activate(context: vscode.ExtensionContext) {
             prCommentController.clearAll();
             prChangesTree.title = 'PR Changes';
         }),
-        vscode.commands.registerCommand('azureDevops.refreshPrDiscussion', () => {
-            prDiscussionProvider.refresh();
+        vscode.commands.registerCommand('azureDevops.refreshPrChanges', () => {
+            prChangesProvider.refresh();
             prCommentController.refreshAll();
         }),
-        vscode.commands.registerCommand('azureDevops.clearPrDiscussion', () => {
-            prDiscussionProvider.clear();
-            prDiscussionTree.title = 'PR Discussion';
+        vscode.commands.registerCommand('azureDevops.openDiscussionComment', (item: PrCommentThreadItem) => {
+            return prChangesProvider.openComment(item);
         }),
-        vscode.commands.registerCommand('azureDevops.openDiscussionComment', (item: PrDiscussionItem) => {
-            return prDiscussionProvider.openComment(item);
+        vscode.commands.registerCommand('azureDevops.replyToDiscussionThread', (item: PrCommentThreadItem) => {
+            return prChangesProvider.replyToDiscussionThread(item);
         }),
-        vscode.commands.registerCommand('azureDevops.replyToDiscussionThread', (item: PrDiscussionItem) => {
-            return prDiscussionProvider.replyToDiscussionThread(item);
+        vscode.commands.registerCommand('azureDevops.resolveThread', (item: PrCommentThreadItem) => {
+            return prChangesProvider.changeThreadStatus(item, 'fixed').then(() => prCommentController.refreshAll());
         }),
-        vscode.commands.registerCommand('azureDevops.resolveThread', (item: PrDiscussionItem) => {
-            return prDiscussionProvider.changeThreadStatus(item, 'fixed').then(() => prCommentController.refreshAll());
+        vscode.commands.registerCommand('azureDevops.wontFixThread', (item: PrCommentThreadItem) => {
+            return prChangesProvider.changeThreadStatus(item, 'wontFix').then(() => prCommentController.refreshAll());
         }),
-        vscode.commands.registerCommand('azureDevops.wontFixThread', (item: PrDiscussionItem) => {
-            return prDiscussionProvider.changeThreadStatus(item, 'wontFix').then(() => prCommentController.refreshAll());
+        vscode.commands.registerCommand('azureDevops.byDesignThread', (item: PrCommentThreadItem) => {
+            return prChangesProvider.changeThreadStatus(item, 'byDesign').then(() => prCommentController.refreshAll());
         }),
-        vscode.commands.registerCommand('azureDevops.byDesignThread', (item: PrDiscussionItem) => {
-            return prDiscussionProvider.changeThreadStatus(item, 'byDesign').then(() => prCommentController.refreshAll());
-        }),
-        vscode.commands.registerCommand('azureDevops.reactivateThread', (item: PrDiscussionItem) => {
-            return prDiscussionProvider.changeThreadStatus(item, 'active').then(() => prCommentController.refreshAll());
+        vscode.commands.registerCommand('azureDevops.reactivateThread', (item: PrCommentThreadItem) => {
+            return prChangesProvider.changeThreadStatus(item, 'active').then(() => prCommentController.refreshAll());
         }),
         vscode.commands.registerCommand('azureDevops.addGeneralComment', () => {
-            return prDiscussionProvider.addGeneralComment();
+            return prChangesProvider.addGeneralComment();
         }),
         vscode.commands.registerCommand('azureDevops.openPrFileDiff', async (fileItem: PrFileItem) => {
             const change = fileItem.change;
@@ -196,6 +180,22 @@ export function activate(context: vscode.ExtensionContext) {
                 await vscode.commands.executeCommand('vscode.diff', leftUri, rightUri, `${filePath}`);
             }
         }),
+    );
+
+    // Register editor-title vote commands (approve/reject/wait from diff view)
+    registerEditorVoteCommands(context, prProvider);
+
+    // Track when a PR diff editor is active to show editor/title vote buttons.
+    // The 'empty' authority is used for placeholder (empty-file) side of diffs and should be excluded.
+    function updatePrDiffContext() {
+        const editor = vscode.window.activeTextEditor;
+        const isPrDiff = editor?.document.uri.scheme === 'azuredevops-pr'
+            && editor.document.uri.authority !== 'empty';
+        vscode.commands.executeCommand('setContext', 'azureDevops.prDiffActive', !!isPrDiff);
+    }
+    updatePrDiffContext();
+    context.subscriptions.push(
+        vscode.window.onDidChangeActiveTextEditor(() => updatePrDiffContext()),
     );
 
     createStatusBarItem(context);

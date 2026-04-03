@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { PrDiscussionProvider, PrDiscussionItem } from '../prDiscussionProvider';
+import { PrChangesProvider, PrCommentThreadItem } from '../prChangesProvider';
 import { EnrichedPullRequest, PrThread } from '../api';
 
 jest.mock('../auth', () => ({
@@ -39,6 +39,7 @@ function makePr(): EnrichedPullRequest {
         commentThreads: [],
         checksStatus: 'none',
         checks: [],
+        workItems: [],
     };
 }
 
@@ -65,7 +66,7 @@ function makeThread(overrides: Partial<PrThread> = {}): PrThread {
     };
 }
 
-describe('PrDiscussionProvider.changeThreadStatus', () => {
+describe('PrChangesProvider.changeThreadStatus', () => {
     beforeEach(() => {
         api.updateThreadStatus.mockReset();
         api.updateThreadStatus.mockResolvedValue(undefined);
@@ -75,11 +76,11 @@ describe('PrDiscussionProvider.changeThreadStatus', () => {
     });
 
     it('calls updateThreadStatus with fixed status for resolve', async () => {
-        const provider = new PrDiscussionProvider({} as any);
+        const provider = new PrChangesProvider({} as any);
         provider.selectPr(makePr(), 'org');
 
         const thread = makeThread();
-        const item = new PrDiscussionItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
+        const item = new PrCommentThreadItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
 
         await provider.changeThreadStatus(item, 'fixed');
 
@@ -89,11 +90,11 @@ describe('PrDiscussionProvider.changeThreadStatus', () => {
     });
 
     it('calls updateThreadStatus with active status for reactivate', async () => {
-        const provider = new PrDiscussionProvider({} as any);
+        const provider = new PrChangesProvider({} as any);
         provider.selectPr(makePr(), 'org');
 
         const thread = makeThread({ status: 'fixed' });
-        const item = new PrDiscussionItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
+        const item = new PrCommentThreadItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
 
         await provider.changeThreadStatus(item, 'active');
 
@@ -103,11 +104,11 @@ describe('PrDiscussionProvider.changeThreadStatus', () => {
     });
 
     it('calls updateThreadStatus with wontFix status', async () => {
-        const provider = new PrDiscussionProvider({} as any);
+        const provider = new PrChangesProvider({} as any);
         provider.selectPr(makePr(), 'org');
 
         const thread = makeThread();
-        const item = new PrDiscussionItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
+        const item = new PrCommentThreadItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
 
         await provider.changeThreadStatus(item, 'wontFix');
 
@@ -117,11 +118,11 @@ describe('PrDiscussionProvider.changeThreadStatus', () => {
     });
 
     it('calls updateThreadStatus with byDesign status', async () => {
-        const provider = new PrDiscussionProvider({} as any);
+        const provider = new PrChangesProvider({} as any);
         provider.selectPr(makePr(), 'org');
 
         const thread = makeThread();
-        const item = new PrDiscussionItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
+        const item = new PrCommentThreadItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
 
         await provider.changeThreadStatus(item, 'byDesign');
 
@@ -131,11 +132,11 @@ describe('PrDiscussionProvider.changeThreadStatus', () => {
     });
 
     it('does nothing when no PR is selected', async () => {
-        const provider = new PrDiscussionProvider({} as any);
+        const provider = new PrChangesProvider({} as any);
         // Do not call selectPr
 
         const thread = makeThread();
-        const item = new PrDiscussionItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
+        const item = new PrCommentThreadItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
 
         await provider.changeThreadStatus(item, 'fixed');
 
@@ -145,11 +146,11 @@ describe('PrDiscussionProvider.changeThreadStatus', () => {
     it('does nothing when no token is available', async () => {
         auth.getToken.mockResolvedValue(null);
 
-        const provider = new PrDiscussionProvider({} as any);
+        const provider = new PrChangesProvider({} as any);
         provider.selectPr(makePr(), 'org');
 
         const thread = makeThread();
-        const item = new PrDiscussionItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
+        const item = new PrCommentThreadItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
 
         await provider.changeThreadStatus(item, 'fixed');
 
@@ -159,11 +160,11 @@ describe('PrDiscussionProvider.changeThreadStatus', () => {
     it('shows error message on API failure', async () => {
         api.updateThreadStatus.mockRejectedValue(new Error('HTTP 403: Forbidden'));
 
-        const provider = new PrDiscussionProvider({} as any);
+        const provider = new PrChangesProvider({} as any);
         provider.selectPr(makePr(), 'org');
 
         const thread = makeThread();
-        const item = new PrDiscussionItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
+        const item = new PrCommentThreadItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
 
         await provider.changeThreadStatus(item, 'fixed');
 

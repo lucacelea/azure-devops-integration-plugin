@@ -1,4 +1,4 @@
-import { PrDiscussionItem, PrDiscussionReplyItem } from '../prDiscussionProvider';
+import { PrCommentThreadItem, PrCommentReplyItem } from '../prChangesProvider';
 import { PrThread } from '../api';
 
 function makeThread(overrides: Partial<PrThread> = {}): PrThread {
@@ -46,10 +46,10 @@ function makeThreadWithReply(): PrThread {
     });
 }
 
-describe('PrDiscussionItem', () => {
+describe('PrCommentThreadItem', () => {
     it('sets a command for general comments (no file context)', () => {
         const thread = makeThread({ threadContext: undefined });
-        const item = new PrDiscussionItem(thread, 'org', 'proj', 'repo1', 42, 'src123', 'tgt456');
+        const item = new PrCommentThreadItem(thread, 'org', 'proj', 'repo1', 42, 'src123', 'tgt456');
 
         expect(item.command).toBeDefined();
         expect(item.command!.command).toBe('azureDevops.openDiscussionComment');
@@ -64,13 +64,13 @@ describe('PrDiscussionItem', () => {
                 rightFileEnd: { line: 10, offset: 1 },
             },
         });
-        const item = new PrDiscussionItem(thread, 'org', 'proj', 'repo1', 42, 'src123', 'tgt456');
+        const item = new PrCommentThreadItem(thread, 'org', 'proj', 'repo1', 42, 'src123', 'tgt456');
 
         expect(item.command).toBeDefined();
         expect(item.command!.command).toBe('azureDevops.openDiscussionComment');
     });
 
-    it('truncates description for tree view display', () => {
+    it('truncates label for tree view display', () => {
         const longContent = 'A'.repeat(200);
         const thread = makeThread({
             comments: [{
@@ -82,46 +82,46 @@ describe('PrDiscussionItem', () => {
                 isDeleted: false,
             }],
         });
-        const item = new PrDiscussionItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
+        const item = new PrCommentThreadItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
 
-        // Description should be truncated (80 char preview)
-        expect((item.description as string).length).toBeLessThan(200);
+        // Label includes author + truncated preview (80 chars)
+        expect((item.label as string).length).toBeLessThan(200);
     });
 
     it('uses megaphone icon for general comments', () => {
         const thread = makeThread({ threadContext: undefined });
-        const item = new PrDiscussionItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
+        const item = new PrCommentThreadItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
 
         expect((item.iconPath as any)?.id).toBe('megaphone');
     });
 
     it('sets contextValue to discussionThread.active for active threads', () => {
         const thread = makeThread({ status: 'active' });
-        const item = new PrDiscussionItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
+        const item = new PrCommentThreadItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
         expect(item.contextValue).toBe('discussionThread.active');
     });
 
     it('sets contextValue to discussionThread.resolved for fixed threads', () => {
         const thread = makeThread({ status: 'fixed' });
-        const item = new PrDiscussionItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
+        const item = new PrCommentThreadItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
         expect(item.contextValue).toBe('discussionThread.resolved');
     });
 
     it('sets contextValue to discussionThread.resolved for wontFix threads', () => {
         const thread = makeThread({ status: 'wontFix' });
-        const item = new PrDiscussionItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
+        const item = new PrCommentThreadItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
         expect(item.contextValue).toBe('discussionThread.resolved');
     });
 
     it('sets contextValue to discussionThread.resolved for byDesign threads', () => {
         const thread = makeThread({ status: 'byDesign' });
-        const item = new PrDiscussionItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
+        const item = new PrCommentThreadItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
         expect(item.contextValue).toBe('discussionThread.resolved');
     });
 
     it('sets contextValue to discussionThread.resolved for closed threads', () => {
         const thread = makeThread({ status: 'closed' });
-        const item = new PrDiscussionItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
+        const item = new PrCommentThreadItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
         expect(item.contextValue).toBe('discussionThread.resolved');
     });
 
@@ -134,7 +134,7 @@ describe('PrDiscussionItem', () => {
                 rightFileEnd: { line: 10, offset: 1 },
             },
         });
-        const item = new PrDiscussionItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
+        const item = new PrCommentThreadItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
         expect((item.iconPath as any)?.id).toBe('check');
     });
 
@@ -147,15 +147,15 @@ describe('PrDiscussionItem', () => {
                 rightFileEnd: { line: 10, offset: 1 },
             },
         });
-        const item = new PrDiscussionItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
+        const item = new PrCommentThreadItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
         expect((item.iconPath as any)?.id).toBe('comment-discussion');
     });
 });
 
-describe('PrDiscussionReplyItem', () => {
+describe('PrCommentReplyItem', () => {
     it('sets a command that opens the parent thread', () => {
         const thread = makeThreadWithReply();
-        const item = new PrDiscussionItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
+        const item = new PrCommentThreadItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
 
         expect(item.replyItems).toHaveLength(1);
         const reply = item.replyItems[0];
@@ -185,7 +185,7 @@ describe('PrDiscussionReplyItem', () => {
                 },
             ],
         });
-        const item = new PrDiscussionItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
+        const item = new PrCommentThreadItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
         const reply = item.replyItems[0];
 
         expect((reply.description as string).length).toBeLessThanOrEqual(100);

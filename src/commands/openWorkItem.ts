@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { getOrganization, getWorkItemProject } from '../config';
-import { getWorkItemId } from '../workItem';
+import { getWorkItemId, buildWorkItemUrl } from '../workItem';
 
 export async function openWorkItem(): Promise<void> {
     try {
@@ -21,7 +21,7 @@ export async function openWorkItem(): Promise<void> {
             return;
         }
 
-        const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_workitems/edit/${id}`;
+        const url = buildWorkItemUrl(org, project, id);
         await vscode.env.openExternal(vscode.Uri.parse(url));
     } catch (error) {
         vscode.window.showErrorMessage(`${error instanceof Error ? error.message : error}`);

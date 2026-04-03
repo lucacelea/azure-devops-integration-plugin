@@ -5,6 +5,7 @@ export interface PullRequest {
     title: string;
     description?: string;
     sourceRefName: string;
+    creationDate?: string;
     createdBy: { displayName: string; id: string };
     reviewers: Array<{ displayName: string; vote: number; id: string }>;
     repository: { id: string; name: string; project: { id: string; name: string } };
@@ -25,6 +26,7 @@ export interface EnrichedPullRequest extends PullRequest {
     checksStatus: 'passed' | 'failed' | 'running' | 'none';
     checks: PolicyCheck[];
     commentThreads: PrThreadSummary[];
+    workItems: WorkItem[];
 }
 
 export interface PrChange {
@@ -452,13 +454,18 @@ async function enrichPullRequests(
             const projectId = pr.repository?.project?.id ?? '';
             const repoId = pr.repository?.id ?? '';
 
-            const [commentSummary, checksResult] = await Promise.all([
+            const [commentSummary, checksResult, workItems] = await Promise.all([
                 project && repoId
                     ? getCommentThreadSummary(org, project, repoId, pr.pullRequestId, token)
                     : Promise.resolve({ unresolvedCommentCount: 0, commentThreads: [] as PrThreadSummary[] }),
                 project && projectId
                     ? getChecks(org, project, projectId, pr.pullRequestId, token, pr.reviewers ?? [])
                     : Promise.resolve({ checksStatus: 'none' as const, checks: [] as PolicyCheck[] }),
+                project && repoId
+                    ? getPrWorkItems(org, project, repoId, pr.pullRequestId, token)
+                        .then((ids) => fetchWorkItemsByIds(org, ids, token))
+                        .catch(() => [] as WorkItem[])
+                    : Promise.resolve([] as WorkItem[]),
             ]);
 
             const checks = [...checksResult.checks];
@@ -483,6 +490,7 @@ async function enrichPullRequests(
                 commentThreads: commentSummary.commentThreads,
                 checksStatus,
                 checks,
+                workItems,
             };
         })
     );
@@ -776,17 +784,24 @@ export async function getAssignedWorkItems(
         return [];
     }
 
-    // Fetch details in batches of 200 (API limit)
+    return fetchWorkItemsByIds(org, workItemIds, token);
+}
+
+async function fetchWorkItemsByIds(
+    org: string, ids: number[], token: string
+): Promise<WorkItem[]> {
+    if (ids.length === 0) { return []; }
+
     const batchSize = 200;
     const allWorkItems: WorkItem[] = [];
-    for (let i = 0; i < workItemIds.length; i += batchSize) {
-        const batch = workItemIds.slice(i, i + batchSize);
+    for (let i = 0; i < ids.length; i += batchSize) {
+        const batch = ids.slice(i, i + batchSize);
         const batchUrl =
             `https://dev.azure.com/${encodeURIComponent(org)}/_apis/wit/workitems` +
             `?ids=${batch.join(',')}&fields=System.Id,System.Title,System.State,System.WorkItemType&api-version=7.1`;
         const batchResponse = await httpsGet(batchUrl, authHeaders(token));
         const batchData = JSON.parse(batchResponse);
-        for (const item of batchData.value as Array<{ id: number; fields: Record<string, string> }>) {
+        for (const item of (batchData.value ?? []) as Array<{ id: number; fields: Record<string, string> }>) {
             allWorkItems.push({
                 id: item.id,
                 title: item.fields['System.Title'] ?? '',
@@ -797,6 +812,19 @@ export async function getAssignedWorkItems(
     }
 
     return allWorkItems;
+}
+
+export async function getPrWorkItems(
+    org: string, project: string, repoId: string, prId: number, token: string
+): Promise<number[]> {
+    const url =
+        `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}` +
+        `/_apis/git/repositories/${encodeURIComponent(repoId)}/pullRequests/${prId}/workitems?api-version=7.1`;
+    const body = await httpsGet(url, authHeaders(token));
+    const data = JSON.parse(body);
+    return ((data.value ?? []) as Array<{ id: string | number }>)
+        .map((ref) => typeof ref.id === 'number' ? ref.id : parseInt(ref.id, 10))
+        .filter((id) => !isNaN(id));
 }
 
 // --- PR diff APIs (Phase 2) ---
