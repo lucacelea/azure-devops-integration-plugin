@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Linked work items in the PR sidebar**: pull requests now show a `Work Items` child node listing linked items with their type and state, and clicking an item opens it in Azure DevOps.
 - **Unified discussion tree in `PR Changes`**: file-level threads now appear directly under the changed file they belong to, and general PR comments are grouped under a `General Comments` node in the same view.
+- **Thread status actions in `PR Changes`**: discussion threads in the unified review tree can now be resolved, reactivated, or marked as `Won't Fix` / `By Design` from the context menu.
 - **Vote from diff editor**: approve, reject, and wait-for-author buttons now appear in the editor title bar when viewing a PR diff, so you can vote without switching back to the sidebar.
 - **Multi-root workspace support for PR creation**: when multiple workspace folders are open, a repository picker now appears (similar to VS Code's native "Create Branch" command) showing each repo name and current branch. If only one folder has an Azure DevOps remote, the picker is skipped automatically.
 

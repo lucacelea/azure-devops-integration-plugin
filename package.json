@@ -162,6 +162,26 @@
         "icon": "$(comment)"
       },
       {
+        "command": "azureDevops.resolveThread",
+        "title": "Resolve",
+        "icon": "$(check)"
+      },
+      {
+        "command": "azureDevops.wontFixThread",
+        "title": "Won't Fix",
+        "icon": "$(circle-slash)"
+      },
+      {
+        "command": "azureDevops.byDesignThread",
+        "title": "By Design",
+        "icon": "$(info)"
+      },
+      {
+        "command": "azureDevops.reactivateThread",
+        "title": "Reactivate",
+        "icon": "$(debug-restart)"
+      },
+      {
         "command": "azureDevops.addGeneralComment",
         "title": "Add Comment",
         "icon": "$(add)"
@@ -337,8 +357,28 @@
         },
         {
           "command": "azureDevops.replyToDiscussionThread",
-          "when": "viewItem == discussionThread",
+          "when": "viewItem =~ /^discussionThread\\./",
           "group": "inline"
+        },
+        {
+          "command": "azureDevops.resolveThread",
+          "when": "viewItem == discussionThread.active",
+          "group": "1_status@1"
+        },
+        {
+          "command": "azureDevops.wontFixThread",
+          "when": "viewItem == discussionThread.active",
+          "group": "1_status@2"
+        },
+        {
+          "command": "azureDevops.byDesignThread",
+          "when": "viewItem == discussionThread.active",
+          "group": "1_status@3"
+        },
+        {
+          "command": "azureDevops.reactivateThread",
+          "when": "viewItem == discussionThread.resolved",
+          "group": "1_status@1"
         }
       ]
     },

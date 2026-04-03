@@ -94,6 +94,62 @@ describe('PrCommentThreadItem', () => {
 
         expect((item.iconPath as any)?.id).toBe('megaphone');
     });
+
+    it('sets contextValue to discussionThread.active for active threads', () => {
+        const thread = makeThread({ status: 'active' });
+        const item = new PrCommentThreadItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
+        expect(item.contextValue).toBe('discussionThread.active');
+    });
+
+    it('sets contextValue to discussionThread.resolved for fixed threads', () => {
+        const thread = makeThread({ status: 'fixed' });
+        const item = new PrCommentThreadItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
+        expect(item.contextValue).toBe('discussionThread.resolved');
+    });
+
+    it('sets contextValue to discussionThread.resolved for wontFix threads', () => {
+        const thread = makeThread({ status: 'wontFix' });
+        const item = new PrCommentThreadItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
+        expect(item.contextValue).toBe('discussionThread.resolved');
+    });
+
+    it('sets contextValue to discussionThread.resolved for byDesign threads', () => {
+        const thread = makeThread({ status: 'byDesign' });
+        const item = new PrCommentThreadItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
+        expect(item.contextValue).toBe('discussionThread.resolved');
+    });
+
+    it('sets contextValue to discussionThread.resolved for closed threads', () => {
+        const thread = makeThread({ status: 'closed' });
+        const item = new PrCommentThreadItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
+        expect(item.contextValue).toBe('discussionThread.resolved');
+    });
+
+    it('uses check icon for resolved threads', () => {
+        const thread = makeThread({
+            status: 'fixed',
+            threadContext: {
+                filePath: '/src/app.ts',
+                rightFileStart: { line: 10, offset: 1 },
+                rightFileEnd: { line: 10, offset: 1 },
+            },
+        });
+        const item = new PrCommentThreadItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
+        expect((item.iconPath as any)?.id).toBe('check');
+    });
+
+    it('uses comment-discussion icon for active file threads', () => {
+        const thread = makeThread({
+            status: 'active',
+            threadContext: {
+                filePath: '/src/app.ts',
+                rightFileStart: { line: 10, offset: 1 },
+                rightFileEnd: { line: 10, offset: 1 },
+            },
+        });
+        const item = new PrCommentThreadItem(thread, 'org', 'proj', 'repo1', 42, 'src', 'tgt');
+        expect((item.iconPath as any)?.id).toBe('comment-discussion');
+    });
 });
 
 describe('PrCommentReplyItem', () => {

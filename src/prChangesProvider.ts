@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { EnrichedPullRequest, getPrIterations, getPrChanges, getPrThreads, PrChange, PrThread, replyToThread, addPullRequestComment } from './api';
+import { EnrichedPullRequest, getPrIterations, getPrChanges, getPrThreads, PrChange, PrThread, replyToThread, addPullRequestComment, ThreadStatus, updateThreadStatus } from './api';
 import { getToken } from './auth';
 import { buildPrFileUri } from './prContentProvider';
 import { setCommentContent, buildCommentDocUri, clearCommentContent } from './prCommentDocProvider';
@@ -116,7 +116,7 @@ export class PrCommentThreadItem extends vscode.TreeItem {
             }
         }
 
-        this.contextValue = 'discussionThread';
+        this.contextValue = thread.status === 'active' ? 'discussionThread.active' : 'discussionThread.resolved';
 
         if (isGeneral || (filePath && sourceCommitId && targetCommitId)) {
             this.command = {
@@ -311,6 +311,24 @@ export class PrChangesProvider implements vscode.TreeDataProvider<PrChangesTreeI
 
         await replyToThread(org, project, repoId, pr.pullRequestId, item.thread.id, content, token);
         this.refresh();
+    }
+
+    async changeThreadStatus(item: PrCommentThreadItem, status: ThreadStatus): Promise<void> {
+        const token = await getToken(this.secretStorage);
+        if (!token || !this.selectedPr || !this.selectedOrg) { return; }
+
+        const pr = this.selectedPr;
+        const org = this.selectedOrg;
+        const project = pr.repository?.project?.name ?? '';
+        const repoId = pr.repository?.id ?? '';
+
+        try {
+            await updateThreadStatus(org, project, repoId, pr.pullRequestId, item.thread.id, status, token);
+            this.refresh();
+        } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : 'Unknown error';
+            vscode.window.showErrorMessage(`Failed to update thread status: ${msg}`);
+        }
     }
 
     async addGeneralComment(): Promise<void> {

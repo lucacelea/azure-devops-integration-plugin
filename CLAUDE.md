@@ -215,7 +215,7 @@ What it does:
 - turns changed files into `PrFileItem` tree items and nests file discussion threads under them
 - adds a `General Comments` root node when the PR has non-file threads
 - delegates diff opening to the `azureDevops.openPrFileDiff` command
-- exposes thread-opening, reply, refresh, clear, and add-comment actions used by commands in `extension.ts`
+- exposes thread-opening, reply, thread-status, refresh, clear, and add-comment actions used by commands in `extension.ts`
 
 Important implication:
 
