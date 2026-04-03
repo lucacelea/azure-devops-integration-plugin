@@ -5,8 +5,8 @@ function getWorkspaceFolder(): string | undefined {
     return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 }
 
-function runGitCommand(command: string): Promise<string | undefined> {
-    const cwd = getWorkspaceFolder();
+function runGitCommand(command: string, overrideCwd?: string): Promise<string | undefined> {
+    const cwd = overrideCwd ?? getWorkspaceFolder();
     if (!cwd) {
         return Promise.resolve(undefined);
     }
@@ -21,12 +21,12 @@ function runGitCommand(command: string): Promise<string | undefined> {
     });
 }
 
-export async function getCurrentBranch(): Promise<string | undefined> {
-    return runGitCommand('git rev-parse --abbrev-ref HEAD');
+export async function getCurrentBranch(cwd?: string): Promise<string | undefined> {
+    return runGitCommand('git rev-parse --abbrev-ref HEAD', cwd);
 }
 
-export async function getDefaultBranch(): Promise<string> {
-    const result = await runGitCommand('git symbolic-ref refs/remotes/origin/HEAD');
+export async function getDefaultBranch(cwd?: string): Promise<string> {
+    const result = await runGitCommand('git symbolic-ref refs/remotes/origin/HEAD', cwd);
     if (result) {
         const parts = result.split('/');
         return parts[parts.length - 1];
@@ -34,26 +34,26 @@ export async function getDefaultBranch(): Promise<string> {
     return 'main';
 }
 
-export async function getRepositoryRoot(): Promise<string | undefined> {
-    return runGitCommand('git rev-parse --show-toplevel');
+export async function getRepositoryRoot(cwd?: string): Promise<string | undefined> {
+    return runGitCommand('git rev-parse --show-toplevel', cwd);
 }
 
-export async function getRemoteUrl(): Promise<string | undefined> {
-    return runGitCommand('git remote get-url origin');
+export async function getRemoteUrl(cwd?: string): Promise<string | undefined> {
+    return runGitCommand('git remote get-url origin', cwd);
 }
 
-export async function branchExistsOnRemote(branch: string): Promise<boolean> {
-    const result = await runGitCommand(`git ls-remote --heads origin ${branch}`);
+export async function branchExistsOnRemote(branch: string, cwd?: string): Promise<boolean> {
+    const result = await runGitCommand(`git ls-remote --heads origin ${branch}`, cwd);
     return result !== undefined && result.length > 0;
 }
 
-export async function pushBranchToRemote(branch: string): Promise<boolean> {
-    const cwd = getWorkspaceFolder();
-    if (!cwd) {
+export async function pushBranchToRemote(branch: string, cwd?: string): Promise<boolean> {
+    const workDir = cwd ?? getWorkspaceFolder();
+    if (!workDir) {
         return false;
     }
     return new Promise((resolve) => {
-        exec(`git push -u origin ${branch}`, { cwd }, (error) => {
+        exec(`git push -u origin ${branch}`, { cwd: workDir }, (error) => {
             resolve(!error);
         });
     });
