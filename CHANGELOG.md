@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Free-text pull request search in the sidebar**: the pull request view now includes a `Search Pull Requests` action that filters visible PRs by title, author, source branch, or PR ID. Search composes with the existing sidebar filters, and a `Clear Pull Request Search` action appears while a search is active.
 - **Edit existing PR titles**: pull requests in the sidebar now include an `Edit Title` action that opens an input box with the current title, updates the pull request in Azure DevOps, and refreshes the list after a successful change.
 - **Linked work items in the PR sidebar**: pull requests now show a `Work Items` child node listing linked items with their type and state, and clicking an item opens it in Azure DevOps.
 - **Unified discussion tree in `PR Changes`**: file-level threads now appear directly under the changed file they belong to, and general PR comments are grouped under a `General Comments` node in the same view.

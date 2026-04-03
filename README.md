@@ -1,6 +1,6 @@
 # Azure DevOps Integration for VS Code
 
-A VS Code extension for Azure DevOps. Browse pull requests in a sidebar grouped by "Created by me," "Assigned to me," and "My teams," review changes and discussion in a unified tree, inspect linked work items, create PRs, and edit PR titles and descriptions without leaving the editor.
+A VS Code extension for Azure DevOps. Browse and search pull requests in a sidebar grouped by "Created by me," "Assigned to me," and "My teams," review changes and discussion in a unified tree, inspect linked work items, create PRs, and edit PR titles and descriptions without leaving the editor.
 
 ## Features
 
@@ -25,6 +25,8 @@ Click any PR to open its `PR Changes` view in VS Code. Changed files can expand 
 When viewing a PR diff, approve, reject, and wait-for-author buttons appear in the editor title bar for quick voting without leaving the diff.
 
 The PR context menu also includes **Edit Title**, which opens an input box pre-filled with the current pull request title and updates the PR immediately after confirmation.
+
+The pull request view title also includes **Search Pull Requests**, which filters the sidebar by PR title, author, source branch, or PR ID. Search combines with the existing sidebar filters, and a **Clear Pull Request Search** action appears while a search is active.
 
 ### Comment Notifications And Discussion
 
@@ -57,6 +59,8 @@ Open the Command Palette (`Cmd+Shift+P`) and type "Azure DevOps" to access:
 | **Azure DevOps: Open Repository** | Opens the repository in Azure DevOps. |
 | **Azure DevOps: Open Work Item** | Opens a work item by ID. Pre-fills the detected ID from the current branch. |
 | **Azure DevOps: Edit Pull Request Description** | Lets you pick one of your authored pull requests, opens its current description in a temporary markdown editor, and updates the PR when you close the tab. |
+| **Azure DevOps: Search Pull Requests** | Opens a search box for the pull request sidebar. Matches PR title, author, source branch, or PR ID, and combines with the current sidebar filter. |
+| **Azure DevOps: Clear Pull Request Search** | Clears the active pull request sidebar search. |
 | **Azure DevOps: Set Personal Access Token** | Configure your PAT for API access. |
 | **Azure DevOps: Remove Personal Access Token** | Remove your stored PAT. |
 | **Azure DevOps: Refresh Pull Requests** | Manually refresh the PR sidebar. |
