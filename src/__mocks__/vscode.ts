@@ -88,6 +88,13 @@ export class TabInputText {
     constructor(public uri: { fsPath: string }) {}
 }
 export enum ProgressLocation { Notification = 15 }
+export class Disposable {
+    constructor(private callOnDispose: () => void) {}
+    dispose() { this.callOnDispose(); }
+}
+export class RelativePattern {
+    constructor(public base: string, public pattern: string) {}
+}
 export const window = {
     showErrorMessage: jest.fn(),
     showInformationMessage: jest.fn(),
@@ -95,14 +102,31 @@ export const window = {
     showQuickPick: jest.fn(),
     showTextDocument: jest.fn(),
     withProgress: jest.fn().mockImplementation(async (_options: unknown, task: () => unknown) => await task()),
+    createStatusBarItem: jest.fn().mockImplementation(() => ({
+        text: '',
+        tooltip: '',
+        command: '',
+        show: jest.fn(),
+        hide: jest.fn(),
+        dispose: jest.fn(),
+    })),
     tabGroups: {
         onDidChangeTabs: jest.fn(),
     },
     activeTextEditor: undefined as any,
 };
+export const StatusBarAlignment = { Left: 1, Right: 2 };
 export const workspace = {
+    workspaceFolders: undefined as any,
     openTextDocument: jest.fn(),
     onDidChangeTextDocument: jest.fn(),
+    onDidChangeConfiguration: jest.fn().mockReturnValue({ dispose: jest.fn() }),
+    createFileSystemWatcher: jest.fn().mockReturnValue({
+        onDidChange: jest.fn(),
+        onDidCreate: jest.fn(),
+        onDidDelete: jest.fn(),
+        dispose: jest.fn(),
+    }),
     getConfiguration: jest.fn().mockReturnValue({
         get: jest.fn().mockImplementation((_key: string, defaultValue?: unknown) => defaultValue),
     }),
@@ -110,6 +134,9 @@ export const workspace = {
 export const commands = {
     executeCommand: jest.fn(),
     registerCommand: jest.fn().mockImplementation((_command: string, callback: unknown) => callback),
+};
+export const extensions = {
+    getExtension: jest.fn(),
 };
 export const env = {
     openExternal: jest.fn(),

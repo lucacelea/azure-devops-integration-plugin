@@ -42,6 +42,7 @@ function makePr(overrides: Partial<EnrichedPullRequest> = {}): EnrichedPullReque
     commentThreads: [],
     checksStatus: "none",
     checks: [],
+    workItems: [],
     ...overrides,
   };
 }
