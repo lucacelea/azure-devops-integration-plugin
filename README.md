@@ -20,7 +20,7 @@ Each PR displays rich status information:
 - Check summary with per-check child items when policies exist
 - Linked work items as expandable child items, including type and state
 
-Click any PR to open its `PR Changes` view in VS Code. Changed files can expand to show file-level discussion threads, and general PR comments are grouped under a `General Comments` node. Use the context menu to open the PR in Azure DevOps, add comments, or edit the PR description when needed.
+Click any PR to open its `PR Changes` view in VS Code. Changed files can expand to show file-level discussion threads, and general PR comments are grouped under a `General Comments` node. From the thread context menu you can reply, resolve, reactivate, or mark a thread as `Won't Fix` or `By Design`. Use the PR context menu to open the PR in Azure DevOps, add comments, or edit the PR description when needed.
 
 When viewing a PR diff, approve, reject, and wait-for-author buttons appear in the editor title bar for quick voting without leaving the diff.
 
