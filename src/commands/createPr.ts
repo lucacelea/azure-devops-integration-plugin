@@ -15,9 +15,11 @@ import { pickRepository } from "../repoPicker";
 import { editMarkdownViaTempFile } from "../tempMarkdownEditor";
 import {
   createPullRequestApi,
+  buildMergeCommitMessage,
   getAssignedWorkItems,
   getRepositoryId,
   getUserId,
+  updatePullRequestCompletionOptions,
   setAutoComplete,
   updateWorkItemState,
   WorkItem,
@@ -366,6 +368,7 @@ export async function createPullRequest(
       template,
       selectedWorkItemTitles,
     );
+    const settings = vscode.workspace.getConfiguration("azureDevops");
 
     const description = await editMarkdownViaTempFile(
       templateWithWorkItems ?? "",
@@ -409,6 +412,34 @@ export async function createPullRequest(
           token,
         });
 
+        const completionOptions = {
+          mergeStrategy: settings.get<"squash">(
+            "pullRequestMergeStrategy",
+            "squash",
+          ),
+          deleteSourceBranch: settings.get<boolean>(
+            "pullRequestDeleteSourceBranch",
+            true,
+          ),
+          completeWorkItems: settings.get<boolean>(
+            "pullRequestCompleteWorkItems",
+            true,
+          ),
+          mergeCommitMessage: buildMergeCommitMessage(
+            result.pullRequestId,
+            title,
+          ),
+        };
+
+        await updatePullRequestCompletionOptions(
+          config.organization,
+          config.project,
+          repoId,
+          result.pullRequestId,
+          completionOptions,
+          token,
+        );
+
         if (selectedWorkItemIds.length > 0 && workItemState) {
           const wiProject = workItemProject ?? (await getWorkItemProject(cwd));
           for (const wiId of selectedWorkItemIds) {
@@ -428,7 +459,6 @@ export async function createPullRequest(
           }
         }
 
-        const settings = vscode.workspace.getConfiguration("azureDevops");
         if (
           settings.get<boolean>("pullRequestAutoComplete", false) &&
           !isDraft.value
@@ -441,20 +471,7 @@ export async function createPullRequest(
               repoId,
               result.pullRequestId,
               userId,
-              {
-                mergeStrategy: settings.get<"squash">(
-                  "pullRequestMergeStrategy",
-                  "squash",
-                ),
-                deleteSourceBranch: settings.get<boolean>(
-                  "pullRequestDeleteSourceBranch",
-                  true,
-                ),
-                completeWorkItems: settings.get<boolean>(
-                  "pullRequestCompleteWorkItems",
-                  true,
-                ),
-              },
+              completionOptions,
               token,
             );
           } catch (error) {
