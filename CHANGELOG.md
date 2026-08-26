@@ -4,6 +4,11 @@ All notable changes to the "Azure DevOps Integration" extension will be document
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- **Merged PRs now use Azure DevOps' default merge commit message**: PRs created by the extension now set `Merged PR {number}: {title}` as the merge commit message so completed merges match the standard Azure DevOps UI output.
 ## [1.0.0] - 2026-04-03
 
 ### Added

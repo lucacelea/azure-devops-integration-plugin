@@ -837,9 +837,32 @@ export interface AutoCompleteOptions {
     completeWorkItems: boolean;
 }
 
+export interface PullRequestCompletionOptions extends AutoCompleteOptions {
+    mergeCommitMessage: string;
+}
+
+export function buildMergeCommitMessage(prId: number, title: string): string {
+    return `Merged PR ${prId}: ${title}`;
+}
+
+export async function updatePullRequestCompletionOptions(
+    org: string, project: string, repoId: string, prId: number,
+    options: PullRequestCompletionOptions, token: string
+): Promise<void> {
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/pullRequests/${prId}?api-version=7.1`;
+    await httpsRequest(url, 'PATCH', authHeaders(token), {
+        completionOptions: {
+            mergeStrategy: options.mergeStrategy,
+            deleteSourceBranch: options.deleteSourceBranch,
+            transitionWorkItems: options.completeWorkItems,
+            mergeCommitMessage: options.mergeCommitMessage,
+        },
+    });
+}
+
 export async function setAutoComplete(
     org: string, project: string, repoId: string, prId: number,
-    userId: string, options: AutoCompleteOptions, token: string
+    userId: string, options: PullRequestCompletionOptions, token: string
 ): Promise<void> {
     const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repoId}/pullRequests/${prId}?api-version=7.1`;
     await httpsRequest(url, 'PATCH', authHeaders(token), {
@@ -848,6 +871,7 @@ export async function setAutoComplete(
             mergeStrategy: options.mergeStrategy,
             deleteSourceBranch: options.deleteSourceBranch,
             transitionWorkItems: options.completeWorkItems,
+            mergeCommitMessage: options.mergeCommitMessage,
         },
     });
 }
