@@ -4,6 +4,12 @@ All notable changes to the "Azure DevOps Integration" extension will be document
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- **Empty PR descriptions no longer auto-insert newlines while typing**: creating a pull request with no template now uses the temporary editor without saving on every keystroke, so typing into an empty description stays on a single line as expected.
+
 ## [1.0.0] - 2026-04-03
 
 ### Added

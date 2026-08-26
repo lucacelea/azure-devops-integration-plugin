@@ -84,7 +84,6 @@ export async function editMarkdownViaTempFile(
       e.contentChanges.length > 0
     ) {
       latestContent = e.document.getText();
-      e.document.save();
     }
   });
 
