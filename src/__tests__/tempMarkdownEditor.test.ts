@@ -135,4 +135,60 @@ describe("editMarkdownViaTempFile", () => {
       (vscode.Uri as any).file = origFile;
     }
   });
+
+  it("does not save on each keystroke when editing an empty description", async () => {
+    const origFile = vscode.Uri.file;
+    let onDidChangeTextDocumentCallback:
+      | ((e: { document: typeof mockDoc; contentChanges: { text: string }[] }) => void)
+      | undefined;
+    let onDidChangeTabsCallback:
+      | ((e: { closed: { input: vscode.TabInputText }[] }) => void)
+      | undefined;
+
+    (vscode.Uri as any).file = jest
+      .fn()
+      .mockReturnValue({ fsPath: "/tmp/pr-description-123.md" });
+    (vscode.workspace.onDidChangeTextDocument as jest.Mock).mockImplementation(
+      (cb: (e: { document: typeof mockDoc; contentChanges: { text: string }[] }) => void) => {
+        onDidChangeTextDocumentCallback = cb;
+        return { dispose: jest.fn() };
+      },
+    );
+    (vscode.window.tabGroups.onDidChangeTabs as jest.Mock).mockImplementation(
+      (cb: (e: { closed: { input: vscode.TabInputText }[] }) => void) => {
+        onDidChangeTabsCallback = cb;
+        return { dispose: jest.fn() };
+      },
+    );
+
+    try {
+      const editorPromise = editMarkdownViaTempFile("", {
+        infoMessage: "Edit the PR description, then close the tab to submit.",
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      mockDoc.getText.mockReturnValue("a");
+      onDidChangeTextDocumentCallback?.({
+        document: mockDoc,
+        contentChanges: [{ text: "a" }],
+      });
+      onDidChangeTabsCallback?.({
+        closed: [
+          {
+            input: new vscode.TabInputText(
+              { fsPath: "/tmp/pr-description-123.md" } as unknown as vscode.Uri,
+            ),
+          },
+        ],
+      });
+
+      const result = await editorPromise;
+      expect(result).toBe("a");
+      expect(mockDoc.save).not.toHaveBeenCalled();
+    } finally {
+      (vscode.Uri as any).file = origFile;
+    }
+  });
 });
